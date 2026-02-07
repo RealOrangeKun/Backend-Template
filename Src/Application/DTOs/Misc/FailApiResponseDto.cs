@@ -1,10 +1,8 @@
 namespace Application.DTOs.Misc;
-
-public class FailApiResponseDto
+public record FailApiResponseDto
 {
-    public string Message { get; set; } = default!;
-    public int StatusCode { get; set; }
-    public Dictionary<string, string[]> Errors { get; set; } = [];
-    public string ErrorCode { get; set; } = default!;
-    public string TraceId { get; set; } = default!;
+    public string Message { get; init; } = default!;
+    public Dictionary<string, string[]> Errors { get; init; } = [];
+    public string ErrorCode { get; init; } = default!;
+    public string TraceId { get; init; } = default!;
 }

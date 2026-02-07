@@ -1,0 +1,36 @@
+using Domain.Constraints;
+using Domain.Enums;
+using Domain.Models.Users;
+
+namespace Domain.Models;
+
+public class User
+{
+    public Guid Id { get; private set; } = Guid.NewGuid();
+    public string Username { get; private set; } = null!;
+    public string PasswordHash { get; private set; } = null!;
+    public string Email { get; private set; } = null!;
+    public bool IsEmailVerified { get; set; } = false;
+    public Roles Role { get; private set; }
+    public string Address { get; private set; } = string.Empty;
+    public string PhoneNumber { get; private set; } = string.Empty;
+
+    // for EF Core
+    private User() { }
+
+    public User(UserCreationParams userCreationParams)
+    {
+        UserGuard.ValidateUsername(userCreationParams.Username);
+        UserGuard.ValidatePasswordHash(userCreationParams.PasswordHash);
+        UserGuard.ValidateEmail(userCreationParams.Email);
+        UserGuard.ValidatePhoneNumber(userCreationParams.PhoneNumber);
+        UserGuard.ValidateAddress(userCreationParams.Address);
+
+        Username = userCreationParams.Username;
+        PasswordHash = userCreationParams.PasswordHash;
+        Email = userCreationParams.Email;
+        Role = userCreationParams.Role;
+        Address = userCreationParams.Address ?? string.Empty;
+        PhoneNumber = userCreationParams.PhoneNumber ?? string.Empty;
+    }
+}

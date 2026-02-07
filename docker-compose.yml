@@ -1,0 +1,70 @@
+networks:
+  backend:
+    driver: bridge
+
+services:
+  postgres:
+    image: docker.io/postgres:16-alpine
+    container_name: mybackendtemplate-db
+    restart: unless-stopped
+    networks:
+      - backend
+    env_file:
+      - .env
+    ports:
+      - "${POSTGRES_PORT}:5432" # exposing postgres port to host for local development, must be omitted in production
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: docker.io/redis:7-alpine
+    container_name: mybackendtemplate-redis
+    restart: unless-stopped
+    networks:
+      - backend
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: Src/API/Dockerfile
+    container_name: mybackendtemplate-api
+    restart: unless-stopped
+    networks:
+      - backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file:
+      - .env
+    ports:
+      - "${API_PORT}:8080"
+
+  seq:
+    image: datalust/seq:latest
+    container_name: mybackendtemplate-seq
+    restart: unless-stopped
+    networks:
+      - backend
+    environment:
+      - ACCEPT_EULA=Y
+    ports:
+      - "8081:80"
+      - "5341:5341"
+
+volumes:
+  postgres_data:
+    driver: local

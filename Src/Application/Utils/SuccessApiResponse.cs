@@ -1,26 +1,44 @@
-using System.Text.Json.Serialization;
 using Application.DTOs.Misc;
-using Domain.Exceptions;
+using Microsoft.AspNetCore.Http;
 
 namespace Application.Utils;
-public class SuccessApiResponse<T>
+public record SuccessApiResponse<T>
 {
-    public bool Success { get; set; } = true;
-    public int StatusCode { get; set; }
-    public string Message { get; set; }
-    public T Data { get; set; }
-    public string TraceId {get; set;}
+    public bool Success { get; init; } = true;
+    public int StatusCode { get; init; }
+    public string Message { get; init; } = string.Empty;
+    public T Data { get; init; } = default!;
+    public string TraceId { get; init; } = string.Empty;
 
-    public SuccessApiResponse(SuccessApiResponseDto<T> dto)
+    public SuccessApiResponse()
     {
-        if (StatusCodeUtils.IsFailure(dto.StatusCode))
-        {
-            throw new SuccessStatusNotAlignedWithStatusCodeException([]);
-        }
-        Success = true;
-        StatusCode = dto.StatusCode;
-        Message = dto.Message;
-        Data = dto.Data;
-        TraceId = dto.TraceId;
+    }
+
+    private SuccessApiResponse(int statusCode, SuccessApiResponseDto<T> successResponse)
+    {
+        StatusCode = statusCode;
+        Message = successResponse.Message;
+        Data = successResponse.Data;
+        TraceId = successResponse.TraceId;
+    }
+
+    public static SuccessApiResponse<T> Ok(SuccessApiResponseDto<T> successApiResponse)
+    {
+        return new SuccessApiResponse<T>(StatusCodes.Status200OK, successApiResponse);
+    }
+
+    public static SuccessApiResponse<T> Created(SuccessApiResponseDto<T> successApiResponse)
+    {
+        return new SuccessApiResponse<T>((int)StatusCodes.Status201Created, successApiResponse);
+    }
+
+    public static SuccessApiResponse<T> Accepted(SuccessApiResponseDto<T> successApiResponse)
+    {
+        return new SuccessApiResponse<T>((int)StatusCodes.Status202Accepted, successApiResponse);
+    }
+
+    public static SuccessApiResponse<T> NoContent(SuccessApiResponseDto<T> successApiResponse)
+    {
+        return new SuccessApiResponse<T>((int)StatusCodes.Status204NoContent, successApiResponse);
     }
 }

@@ -1,56 +1,59 @@
 using System.Net;
 using System.Text.Json;
+using Application.Constants;
 using Application.DTOs.Misc;
 using Application.Utils;
 using Domain.Exceptions;
 
 namespace MyBackendTemplate.API.Middlewares;
-
 public class GlobalExceptionHandlerMiddleware(RequestDelegate next, ILogger<GlobalExceptionHandlerMiddleware> logger)
 {
     private readonly RequestDelegate _next = next;
     private readonly ILogger<GlobalExceptionHandlerMiddleware> _logger = logger;
 
-    public async Task InvokeAsync(HttpContext context, CancellationToken cancellationToken)
+    public async Task InvokeAsync(HttpContext context)
     {
         try
         {
             await _next(context);
         }
-        catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
+        catch (Exception ex)
         {
-            await HandleExceptionAsync(context, ex, cancellationToken);
+            _logger.LogCritical(ex, "An exception was thrown while processing the request.");
+            await HandleExceptionAsync(context, ex);
         }
     }
 
-    private Task HandleExceptionAsync(HttpContext context, Exception exception, CancellationToken cancellationToken)
+    private static Task HandleExceptionAsync(HttpContext context, Exception exception)
     {
         context.Response.ContentType = "application/json";
         var response = new FailApiResponseDto();
-        
-        if (exception is CustomAppException customAppException)
+        if (exception is DomainException domainException)
         {
-            _logger.LogInformation(customAppException, "A CustomAppException was thrown while processing the request.");
-            response.Message = customAppException.Message;
-            response.StatusCode = customAppException.StatusCode;
-            response.Errors = customAppException.Errors;
-            response.ErrorCode = customAppException.ErrorCode;
-            context.Response.StatusCode = customAppException.StatusCode;
+            response = new FailApiResponseDto
+            {
+                Message = domainException.Message,
+                Errors = [],
+                ErrorCode = ErrorCodes.DomainErrorCode,
+                TraceId = context.TraceIdentifier
+
+            };
+            context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
         }
         else
         {
-            _logger.LogError(exception, "An Unhandled Exception occurred while processing the request.");
-            response.Message = "An unexpected error occurred.";
-            response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            response.Errors = [];
-            response.ErrorCode = "INTERNAL_SERVER_ERROR";
+            response = new FailApiResponseDto
+            {
+                Message = "An unexpected error occurred. Please try again later.",
+                Errors = [],
+                ErrorCode = ErrorCodes.InternalServerErrorCode,
+                TraceId = context.TraceIdentifier
+            };
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
         }
 
-        response.TraceId = context.TraceIdentifier;
         var options = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
-        var json = JsonSerializer.Serialize(response, options);
-
-        return context.Response.WriteAsync(json, cancellationToken);
+        var json = JsonSerializer.Serialize(FailApiResponse.InternalServerError(response), options);
+        return context.Response.WriteAsync(json);
     }
 }

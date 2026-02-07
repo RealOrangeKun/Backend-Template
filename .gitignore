@@ -428,3 +428,4 @@ FodyWeavers.xsd
 *.msp
 
 # Project Specific Ignored Files
+remember.txt

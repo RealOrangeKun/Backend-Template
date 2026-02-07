@@ -1,5 +1,4 @@
 namespace Application.Utils;
-
 public static class StatusCodeUtils
 {
     public static bool IsSuccess(int statusCode) => statusCode >= 200 && statusCode <= 299;
