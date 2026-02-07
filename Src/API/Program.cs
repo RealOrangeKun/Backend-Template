@@ -7,6 +7,10 @@ using System.Net.Mail;
 using System.Net;
 using Application.Interfaces;
 using Serilog;
+using Microsoft.AspNetCore.RateLimiting;
+using AspNetCoreRateLimit;
+using Swashbuckle.AspNetCore;
+using Asp.Versioning;
 
 Env.Load("../../.env");  // Load .env from root
 
@@ -30,6 +34,9 @@ try
 
     builder.Services.AddControllers();
 
+    // Add Swagger/OpenAPI services
+    builder.Services.AddSwaggerGen();
+
     // Get connection string from environment variable with fallback for migrations
     var connectionString = Environment.GetEnvironmentVariable("CONNECTION_STRING") ?? 
         throw new InvalidOperationException("CONNECTION_STRING environment variable is not set.");
@@ -37,7 +44,17 @@ try
     // naming convention for postgreSQL is snake_case
     builder.Services.AddDbContext<AppDbContext>(options =>
         options.UseNpgsql(connectionString)
-               .UseSnakeCaseNamingConvention());
+               .UseSnakeCaseNamingConvention()
+               .UseNpgsql(connectionString, npgsqlOptions =>
+    {
+        // Enable Built-in Retries
+        // This automatically handles "Transient" errors (like network blips).
+        // It will retry up to 6 times by default.
+        npgsqlOptions.EnableRetryOnFailure(
+            maxRetryCount: 5,
+            maxRetryDelay: TimeSpan.FromSeconds(10),
+            errorCodesToAdd: null);
+    }));
 
     // 1. Email SMTP Configuration
     var emailConfig = new Dictionary<string, string>
@@ -86,14 +103,41 @@ try
     // Register application services
     builder.Services.AddScoped<AuthService>();
 
+    // Add rate limiting
+    builder.Services.AddRateLimiter(options =>
+    {
+        options.AddFixedWindowLimiter("fixed", opt =>
+        {
+            opt.Window = TimeSpan.FromSeconds(10);
+            opt.PermitLimit = 5;
+        });
+    });
+
+    builder.Services.AddApiVersioning(options =>
+    {
+        // 1. Default to v1.0 if the client doesn't specify one
+        options.DefaultApiVersion = new ApiVersion(1, 0);
+        options.AssumeDefaultVersionWhenUnspecified = true;
+        
+        // 2. Report supported versions in the "api-supported-versions" header
+        options.ReportApiVersions = true;
+        
+        // 3. Tell .NET to look for the version in the URL Path
+        options.ApiVersionReader = new UrlSegmentApiVersionReader();
+    });
+
     var app = builder.Build();
 
     app.UseSerilogRequestLogging();
+
+    app.UseIpRateLimiting();
 
     app.UseMiddleware<GlobalExceptionHandlerMiddleware>();
 
     if (app.Environment.IsDevelopment())
     {
+        app.UseSwagger();
+        app.UseSwaggerUI();
         app.MapOpenApi();
     }
 
