@@ -10,4 +10,5 @@ public static class InternalAuthErrorCodes
     public const string EmailNotConfirmedCode = "EMAIL_NOT_CONFIRMED";
     public const string EmailAlreadyConfirmedCode = "EMAIL_ALREADY_CONFIRMED";
     public const string InvalidActivationTokenCode = "INVALID_ACTIVATION_TOKEN";
+    public const string InvalidRefreshTokenCode = "INVALID_REFRESH_TOKEN";
 }

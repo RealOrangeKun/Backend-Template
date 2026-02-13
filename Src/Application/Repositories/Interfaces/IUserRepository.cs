@@ -8,6 +8,7 @@ public interface IUserRepository
     Task<bool> IsPhoneNumberInUseAsync(string phoneNumber, CancellationToken cancellationToken);
     Task<bool> IsEmailConfirmedAsync(string email, CancellationToken cancellationToken);
     Task<bool> ConfirmEmailAsync(string email, CancellationToken cancellationToken);
+    Task<bool> UpdatePasswordByEmailAsync(string email, string newPassword, CancellationToken cancellationToken);
 
     Task AddUserAsync(User user, CancellationToken cancellationToken);
 

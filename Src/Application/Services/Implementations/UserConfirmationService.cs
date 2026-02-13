@@ -21,7 +21,7 @@ public class UserConfirmationService(
 
     public async Task<Result<SuccessApiResponse>> ConfirmEmailAsync(ConfirmEmailRequestDto confirmEmailRequest, CancellationToken cancellationToken)
     {
-        if (!await _userRepository.IsEmailInUseAsync(confirmEmailRequest.Email, cancellationToken))
+        if (await _userRepository.IsEmailInUseAsync(confirmEmailRequest.Email, cancellationToken) == false)
         {
             return Result<SuccessApiResponse>.Failure(InternalAuthErrors.UserNotFound);
         }

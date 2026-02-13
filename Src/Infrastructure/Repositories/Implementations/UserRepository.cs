@@ -69,4 +69,13 @@ public class UserRepository(AppDbContext dbContext) : IUserRepository
         var user = await _dbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Email == email, cancellationToken) ?? throw new DbException("User not found");
         return user.IsEmailVerified;
     }
+    public async Task<bool> UpdatePasswordByEmailAsync(string email, string newPasswordHash, CancellationToken cancellationToken)
+    {
+        var rowsAffected = await _dbContext.Users
+            .Where(u => u.Email == email)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(u => u.PasswordHash, newPasswordHash),
+                cancellationToken);
+        return rowsAffected > 0;
+    }
 }

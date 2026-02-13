@@ -70,4 +70,20 @@ public static class InternalAuthErrors
         string.Empty,
         StatusCodes.Status400BadRequest
     );
+
+    public static readonly Error InvalidRefreshToken = new(
+        InternalAuthErrorCodes.InvalidRefreshTokenCode,
+        "The provided refresh token is invalid or has expired.",
+        [],
+        string.Empty,
+        StatusCodes.Status401Unauthorized
+    );
+
+    public static readonly Error MissingRefreshToken = new(
+        InternalAuthErrorCodes.InvalidRefreshTokenCode,
+        "Refresh token is missing or invalid.",
+        [],
+        string.Empty,
+        StatusCodes.Status400BadRequest
+    );
 }

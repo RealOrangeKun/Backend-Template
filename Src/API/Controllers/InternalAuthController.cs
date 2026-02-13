@@ -33,6 +33,23 @@ public class InternalAuthController(IInternalAuthService authService, IUserConfi
         CancellationToken cancellationToken)
     {
         var result = await _authService.LoginAsync(loginRequest, cancellationToken);
+        
+        if (result.IsSuccess)
+        {
+            var refreshToken = result.Data.Data.RefreshToken;
+            Response.Cookies.Append(
+                "refreshToken",
+                refreshToken,
+                new CookieOptions
+                {
+                    HttpOnly = true,
+                    Secure = true,
+                    SameSite = SameSiteMode.Strict,
+                    Expires = DateTimeOffset.UtcNow.AddDays(30)
+                }
+            );
+        }
+        
         return this.ToActionResult(result);
     }
 
@@ -56,15 +73,35 @@ public class InternalAuthController(IInternalAuthService authService, IUserConfi
         return this.ToActionResult(result);
     }
 
-    // [HttpPost("forget-password")]
-    // public async Task<ActionResult<ForgetPasswordResponseDto>> ForgetPassword([FromBody] ForgetPasswordRequestDto forgetPasswordRequest, CancellationToken cancellationToken)
-    // {
+    [HttpPost("refresh-token")]
+    [ProducesResponseType(typeof(SuccessApiResponse<RefreshTokenResponseDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenRequestDto refreshTokenRequest, CancellationToken cancellationToken)
+    {
+        var refreshToken = Request.Cookies["refreshToken"] ?? string.Empty;
         
-    // }
+        // Handle missing refresh token cookie
+        if (string.IsNullOrEmpty(refreshToken) || !Guid.TryParse(refreshToken, out var parsedRefreshToken))
+        {
+            parsedRefreshToken = Guid.Empty;
+        }
+        
+        var result = await _authService.RefreshTokenAsync(refreshTokenRequest.UserId, parsedRefreshToken, cancellationToken);
+        return this.ToActionResult(result);
+    }
 
-    // [HttpPost("reset-password")]
-    // public async Task<ActionResult<ResetPasswordResponseDto>> ResetPassword([FromBody] ResetPasswordRequestDto resetPasswordRequest, CancellationToken cancellationToken)
-    // {
-        
-    // }
+    [HttpPost("forget-password")]
+    [ProducesResponseType(typeof(SuccessApiResponse), StatusCodes.Status200OK)]
+    public async Task<IActionResult> ForgetPassword([FromBody] ForgetPasswordRequestDto forgetPasswordRequest, CancellationToken cancellationToken)
+    {
+        var result = await _authService.ForgetPasswordAsync(forgetPasswordRequest, cancellationToken);
+        return this.ToActionResult(result);
+    }
+
+    [HttpPost("reset-password")]
+    [ProducesResponseType(typeof(SuccessApiResponse), StatusCodes.Status200OK)]
+    public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequestDto resetPasswordRequest, CancellationToken cancellationToken)
+    {
+        var result = await _authService.ResetPasswordAsync(resetPasswordRequest, cancellationToken);
+        return this.ToActionResult(result);
+    }
 }

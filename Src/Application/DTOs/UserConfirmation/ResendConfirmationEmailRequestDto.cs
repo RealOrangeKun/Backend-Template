@@ -1,6 +1,6 @@
 namespace Application.DTOs.InternalAuth;
 
-public class ResendConfirmationEmailRequestDto
+public record ResendConfirmationEmailRequestDto
 {
     public string Email { get; init; } = default!;
 }
