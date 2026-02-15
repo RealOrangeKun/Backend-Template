@@ -36,7 +36,7 @@ The template follows the sacred principles of Clean Architecture. Dependency flo
 - **API:** HTTP concerns, authentication, validation, response formatting
 
 ### **The Result Pattern**
-We avoid the "Throwing the Exception" ritual for expected failures. Instead, we use the **Result Pattern**, returning a standard outcome object that either contains the prize or a detailed description of why the quest failed.
+We avoid the "Throwing the Exception" for expected failures. Instead, we use the **Result Pattern**, returning a standard outcome object that either contains the prize or a detailed description of why the quest failed.
 
 **Example:**
 ```csharp
@@ -138,7 +138,7 @@ Asynchronous communication is handled by **MassTransit**, an abstraction layer o
 
 ## 🔒 Defense: Idempotency Protocols
 
-### **The Idempotency-Key Ritual**
+### **The Idempotency-Key**
 To prevent a client from accidentally casting the same spell twice (e.g., double charging a user), we implement **Idempotent Filters**. 
 Critical actions require a unique `Idempotency-Key`. The system checks the **Redis Relic** to see if this key has been used recently, returning cached results for duplicates.
 

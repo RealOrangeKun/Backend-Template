@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
 using System.Text;
 using System.Threading.RateLimiting;
 
@@ -18,13 +19,18 @@ public static class DependencyInjection
         this IServiceCollection services,
         string jwtKey,
         string jwtIssuer,
-        string jwtAudience)
+        string jwtAudience,
+        bool isDevelopment = false)
     {
         services.AddAuthenticationAndAuthorization(jwtKey, jwtIssuer, jwtAudience);
         services.AddControllersWithValidation();
         services.AddRateLimiting();
         services.AddApiVersioningConfiguration();
         services.AddActionFilters();
+        if (isDevelopment)
+        {
+            services.AddSwaggerDocumentation();
+        }
 
         return services;
     }
@@ -132,6 +138,62 @@ public static class DependencyInjection
     private static IServiceCollection AddActionFilters(this IServiceCollection services)
     {
         services.AddTransient<IdempotencyFilter>();
+        return services;
+    }
+
+    private static IServiceCollection AddSwaggerDocumentation(this IServiceCollection services)
+    {
+        services.AddSwaggerGen(options =>
+        {
+            options.SwaggerDoc("v1", new OpenApiInfo
+            {
+                Title = "Backend Template API",
+                Version = "1.0",
+                Description = "The Architect's Forge - A high-performance, resilient backend template with Clean Architecture",
+                Contact = new OpenApiContact
+                {
+                    Name = "Development Team",
+                    Email = "dev@example.com"
+                },
+                License = new OpenApiLicense
+                {
+                    Name = "MIT"
+                }
+            });
+
+            // Add JWT Bearer token support in Swagger
+            options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+            {
+                Type = SecuritySchemeType.Http,
+                Scheme = "bearer",
+                BearerFormat = "JWT",
+                Description = "Enter your JWT token in the format: Bearer {token}"
+            });
+
+            options.AddSecurityRequirement(new OpenApiSecurityRequirement
+            {
+                {
+                    new OpenApiSecurityScheme
+                    {
+                        Reference = new OpenApiReference
+                        {
+                            Type = ReferenceType.SecurityScheme,
+                            Id = "Bearer"
+                        }
+                    },
+                    new string[] { }
+                }
+            });
+
+            // Include XML comments if available
+            var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
+            var xmlPath = System.IO.Path.Combine(AppContext.BaseDirectory, xmlFile);
+            if (System.IO.File.Exists(xmlPath))
+            {
+                options.IncludeXmlComments(xmlPath);
+            }
+        });
+
         return services;
     }
 }

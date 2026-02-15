@@ -56,11 +56,25 @@ try
     builder.Services.AddDomain();
     builder.Services.AddInfrastructure(connectionString);
     builder.Services.AddApplication(emailConfig, redisConnectionString, rabbitMqHost, rabbitMqPort, rabbitMqUsername, rabbitMqPassword);
-    builder.Services.AddApiLayer(jwtKey, jwtIssuer, jwtAudience);
+    builder.Services.AddApiLayer(jwtKey, jwtIssuer, jwtAudience, builder.Environment.IsDevelopment());
 
     var app = builder.Build();
 
     app.UseSerilogRequestLogging();
+
+    // Enable Swagger UI only in development mode
+    if (app.Environment.IsDevelopment())
+    {
+        app.UseSwagger();
+        app.UseSwaggerUI(options =>
+        {
+            options.SwaggerEndpoint("/swagger/v1/swagger.json", "Backend Template API v1.0");
+            options.RoutePrefix = "api-docs"; // Access Swagger at /api-docs
+            options.DefaultModelsExpandDepth(2);
+            options.DefaultModelExpandDepth(1);
+            options.DisplayOperationId();
+        });
+    }
 
     if (!app.Environment.IsEnvironment("Testing"))
     {

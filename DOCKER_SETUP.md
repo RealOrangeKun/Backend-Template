@@ -6,7 +6,7 @@ This project includes Docker support with PostgreSQL and ASP.NET Core API contai
 
 1. **Ensure you're in the project root directory:**
    ```bash
-   cd "/home/alilililili/Projects/Backend Template"
+   cd "./Backend Template"
    ```
 
 2. **Start the containers:**
