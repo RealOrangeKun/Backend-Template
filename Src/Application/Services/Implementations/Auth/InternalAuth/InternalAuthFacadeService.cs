@@ -37,4 +37,10 @@ public class InternalAuthFacadeService(
 
     public Task<Result<SuccessApiResponse<RefreshTokenResponseDto>>> RefreshTokenAsync(RefreshTokenRequestDto refreshTokenRequest, string refreshTokenCookie, CancellationToken cancellationToken)
         => _internalAuthService.RefreshTokenAsync(refreshTokenRequest.UserId, Guid.TryParse(refreshTokenCookie, out var parsed) ? parsed : Guid.Empty, cancellationToken);
+    
+    public Task<Result<SuccessApiResponse<RegisterResponseDto>>> GuestPromoteAsync(RegisterRequestDto registerRequest, Guid userId, CancellationToken cancellationToken)
+        => _internalAuthService.GuestPromoteAsync(registerRequest, userId, cancellationToken);
+
+    public Task<Result<SuccessApiResponse<GuestLoginResponseDto>>> GuestLoginAsync(CancellationToken cancellationToken)
+        => _internalAuthService.GuestLoginAsync(cancellationToken);
 }

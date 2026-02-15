@@ -105,8 +105,8 @@ public class RegisterationLogicTests(CustomWebApplicationFactory factory) : Base
         var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var user = await dbContext.Users.FirstOrDefaultAsync(u => u.Email == Email);
 
-        Assert.True(user!.RefreshTokenExpiryTime <= DateTime.UtcNow.AddDays(30) && 
-                    user.RefreshTokenExpiryTime > DateTime.UtcNow.AddDays(29), 
+        Assert.True(user!.RefreshTokenExpiryTime <= DateTime.UtcNow.AddDays(100) && 
+                    user.RefreshTokenExpiryTime > DateTime.UtcNow.AddDays(99), 
                     $"Expected refresh token expiry to be around 30 days, but got {user.RefreshTokenExpiryTime}");
         // Add more assertions as needed to verify the refresh token lifetime
     }

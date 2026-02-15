@@ -39,12 +39,16 @@ public static class AuthBackdoor
         // Hash the password using BCrypt (Application project includes BCrypt dependency)
         var passwordHash = BCrypt.Net.BCrypt.HashPassword(pwd, BCrypt.Net.BCrypt.GenerateSalt());
 
+        // Generate refresh token and expiry (matching the User domain model behavior)
+        var refreshToken = Guid.NewGuid();
+        var refreshTokenExpiry = DateTime.UtcNow.AddDays(30);
+
         await using var conn = new NpgsqlConnection(connStr);
         await conn.OpenAsync();
 
         var cmd = conn.CreateCommand();
-        cmd.CommandText = @"INSERT INTO users (id, username, password_hash, email, is_email_verified, role, address, phone_number, auth_scheme)
-                            VALUES (@id, @username, @password_hash, @email, @is_email_verified, @role, @address, @phone_number, @auth_scheme);";
+        cmd.CommandText = @"INSERT INTO users (id, username, password_hash, email, is_email_verified, role, address, phone_number, auth_scheme, refresh_token, refresh_token_expiry_time)
+                            VALUES (@id, @username, @password_hash, @email, @is_email_verified, @role, @address, @phone_number, @auth_scheme, @refresh_token, @refresh_token_expiry_time);";
         cmd.Parameters.AddWithValue("@id", userId);
         cmd.Parameters.AddWithValue("@username", uname);
         cmd.Parameters.AddWithValue("@password_hash", passwordHash);
@@ -54,6 +58,8 @@ public static class AuthBackdoor
         cmd.Parameters.AddWithValue("@address", string.Empty);
         cmd.Parameters.AddWithValue("@phone_number", string.Empty);
         cmd.Parameters.AddWithValue("@auth_scheme", authScheme);
+        cmd.Parameters.AddWithValue("@refresh_token", refreshToken);
+        cmd.Parameters.AddWithValue("@refresh_token_expiry_time", refreshTokenExpiry);
 
         await cmd.ExecuteNonQueryAsync();
 

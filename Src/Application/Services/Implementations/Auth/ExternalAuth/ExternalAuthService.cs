@@ -112,10 +112,8 @@ public class ExternalAuthService(
             AuthScheme = AuthScheme.External
         };
 
-        var user = new User(userCreationParams)
-        {
-            IsEmailVerified = true
-        };
+        var user = new User(userCreationParams);
+        user.MarkEmailAsVerified();
 
         await _userRepository.AddUserAsync(user, ct);
         return user;

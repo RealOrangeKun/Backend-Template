@@ -22,7 +22,8 @@ public class JwtTokenProvider(IConfiguration config, ILogger<JwtTokenProvider> l
         {
             new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
             new Claim(JwtRegisteredClaimNames.Email, user.Email),
-        new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()) // Unique ID
+            new Claim(ClaimTypes.Role, user.Role.ToString()),
+            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()) // Unique ID
         };
 
         var keyString = _config["JWT_KEY"] ?? throw new InvalidOperationException("JWT Key is not configured in environment variables.");

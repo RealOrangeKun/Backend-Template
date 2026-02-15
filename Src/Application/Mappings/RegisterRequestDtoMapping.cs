@@ -16,5 +16,9 @@ public class RegisterRequestDtoMapping : IRegister
             .Map(dest => (Roles)dest.Role, src => Roles.User)
             .Map<string, string>(dest => (string)dest.Address, src => src.Address)
             .Map<string, string>(dest => (string)dest.PhoneNumber, src => src.PhoneNumber);
+        
+        config.NewConfig<RegisterRequestDto, GuestUserCreationParams>()
+            .Map(dest => (Roles)dest.Role, src => Roles.Guest)
+            .Map(dest => (AuthScheme)dest.AuthScheme, src => AuthScheme.Internal);
     }
 }

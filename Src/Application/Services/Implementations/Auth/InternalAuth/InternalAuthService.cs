@@ -30,8 +30,8 @@ public class InternalAuthService(
 
     public async Task<Result<SuccessApiResponse<RegisterResponseDto>>> RegisterAsync(RegisterRequestDto registerRequest, CancellationToken cancellationToken)
     {
-        var user = CreateUser(registerRequest);
-        var uniquenessResult = await ValidateUserIdentifiersUniquenessAsync(user, cancellationToken);
+        var user = CreateUserForRegisteration(registerRequest);
+        var uniquenessResult = await ValidateRegisterRequestAsync(user, cancellationToken);
         if (!uniquenessResult.IsSuccess)
         {
             return uniquenessResult;
@@ -56,7 +56,7 @@ public class InternalAuthService(
             }
         });
     }
-    private static User CreateUser(RegisterRequestDto registerRequest)
+    private static User CreateUserForRegisteration(RegisterRequestDto registerRequest)
     {
         // map using Mapster
         var userCreationParams = registerRequest.Adapt<UserCreationParams>();
@@ -65,17 +65,14 @@ public class InternalAuthService(
             PasswordHash = HashPassword(registerRequest.Password),
             AuthScheme = AuthScheme.Internal
         };
-        var user = new User(userCreationParams)
-        {
-            RefreshTokenExpiryTime = DateTime.UtcNow.AddDays(30)
-        };
+        var user = new User(userCreationParams);
         return user;
     }
     private static string HashPassword(string password)
     {
         return BCrypt.Net.BCrypt.HashPassword(password, BCrypt.Net.BCrypt.GenerateSalt());
     }
-    private async Task<Result<SuccessApiResponse<RegisterResponseDto>>> ValidateUserIdentifiersUniquenessAsync(User user, CancellationToken cancellationToken)
+    private async Task<Result<SuccessApiResponse<RegisterResponseDto>>> ValidateRegisterRequestAsync(User user, CancellationToken cancellationToken)
     {
         if (await IsEmailInUseAsync(user.Email, cancellationToken))
         {
@@ -144,17 +141,17 @@ public class InternalAuthService(
     }
     private Result<SuccessApiResponse<LoginResponseDto>> ValidateLoginRequest(User? user, LoginRequestDto loginRequest)
     {
-        if (user == null)
+        if (UserExists(user) == false)
         {
             _logger.LogWarning("Login failed: User {UsernameOrEmail} not found", loginRequest.UsernameOrEmail);
             return Result<SuccessApiResponse<LoginResponseDto>>.Failure(AuthErrors.InvalidCredentials);
         }
-        if (IsExternalAuthScheme(user.AuthScheme))
+        if (IsExternalAuthScheme(user!.AuthScheme))
         {
             _logger.LogWarning("Login failed: User {UsernameOrEmail} is trying to login with wrong auth scheme: {AuthScheme}", loginRequest.UsernameOrEmail, user.AuthScheme);
             return Result<SuccessApiResponse<LoginResponseDto>>.Failure(AuthErrors.WrongAuthScheme);
         }
-        if (!user.IsEmailVerified)
+        if (user.IsEmailVerified == false)
         {
             _logger.LogWarning("Login failed: Email not verified for user {UsernameOrEmail}", loginRequest.UsernameOrEmail);
             return Result<SuccessApiResponse<LoginResponseDto>>.Failure(AuthErrors.EmailNotConfirmed);
@@ -178,17 +175,16 @@ public class InternalAuthService(
     public async Task<Result<SuccessApiResponse<RefreshTokenResponseDto>>> RefreshTokenAsync(Guid userId, Guid refreshToken, CancellationToken cancellationToken)
     {
         var user = await _userRepository.GetUserByIdAsync(userId, cancellationToken);
-        var existenceResult = ValidateUserExistence(user, userId);
-        if (!existenceResult.IsSuccess)
-        {
-            return existenceResult;
-        }
-        var validationResult = ValidateRefreshToken(user!, refreshToken, userId);
+        var validationResult = ValidateRefreshToken(user, refreshToken, userId);
         if (!validationResult.IsSuccess)
         {
             return validationResult;
         }
         _logger.LogInformation("Refresh token validated successfully for user {UserId}", userId);
+
+        user!.GenerateNewRefreshToken();
+        await _userRepository.UpdateUserAsync(user, cancellationToken);
+        _logger.LogInformation("New refresh token generated and saved for user {UserId}", userId);
 
         var newAccessToken = _tokenProvider.GenerateAccessToken(user!);
         _logger.LogInformation("Token refreshed successfully for user {UserId}", userId);
@@ -199,31 +195,112 @@ public class InternalAuthService(
             Message = "Access token refreshed successfully.",
             Data = new RefreshTokenResponseDto
             {
-                AccessToken = newAccessToken
+                AccessToken = newAccessToken,
+                RefreshToken = user.RefreshToken.ToString()
             }
         });
     }
-    private Result<SuccessApiResponse<RefreshTokenResponseDto>> ValidateUserExistence(User? user, Guid userId)
+    private bool UserExists(User? user)
     {
         if (user == null)
         {
-            _logger.LogWarning("User {UserId} not found", userId);
+            _logger.LogWarning("User not found");
+            return false;
+        }
+        return true;
+    }
+    private Result<SuccessApiResponse<RefreshTokenResponseDto>> ValidateRefreshToken(User? user, Guid refreshToken, Guid userId)
+    {
+        if (UserExists(user) == false)
+        {
             return Result<SuccessApiResponse<RefreshTokenResponseDto>>.Failure(UserErrors.UserNotFound);
         }
-        return Result<SuccessApiResponse<RefreshTokenResponseDto>>.Success(default!);
-    }
-    private Result<SuccessApiResponse<RefreshTokenResponseDto>> ValidateRefreshToken(User user, Guid refreshToken, Guid userId)
-    {
         if (refreshToken == Guid.Empty)
         {
             _logger.LogWarning("Token refresh failed: Missing refresh token for user {UserId}", userId);
             return Result<SuccessApiResponse<RefreshTokenResponseDto>>.Failure(AuthErrors.MissingRefreshToken);
         }
-        if (user.RefreshToken != refreshToken || user.RefreshTokenExpiryTime <= DateTime.UtcNow)
+        if (user!.RefreshToken != refreshToken || user.RefreshTokenExpiryTime <= DateTime.UtcNow)
         {
             _logger.LogWarning("Token refresh failed: Invalid or expired refresh token for user {UserId}", userId);
             return Result<SuccessApiResponse<RefreshTokenResponseDto>>.Failure(AuthErrors.InvalidRefreshToken);
         }
         return Result<SuccessApiResponse<RefreshTokenResponseDto>>.Success(default!);
+    }
+
+    public async Task<Result<SuccessApiResponse<RegisterResponseDto>>> GuestPromoteAsync(RegisterRequestDto registerRequest, Guid userId, CancellationToken cancellationToken)
+    {
+        var user = CreateUserForRegisteration(registerRequest);
+        user.SetGuestId(userId);
+
+        var validateGuestPromoteRequestAsyncResult = await ValidateGuestPromoteRequestAsync(user, cancellationToken);
+        if (!validateGuestPromoteRequestAsyncResult.IsSuccess)        
+        {
+            return validateGuestPromoteRequestAsyncResult;
+        }
+        _logger.LogInformation("User identifiers are unique for email: {Email}, username: {Username}", user.Email, user.Username);
+
+        await _userRepository.UpdateUserAsync(user, cancellationToken);
+        _logger.LogInformation("User promoted successfully with email: {Email}", user.Email);
+
+        var confirmationToken = ConfirmationTokenCacheService.GenerateRandomToken();
+        await _tokenCacheService.SetTokenAsync(user.Email, confirmationToken, cancellationToken);
+        await _emailService.SendConfirmationEmailAsync(user.Email, confirmationToken, cancellationToken);
+        _logger.LogInformation("Confirmation email sent successfully to {Email}", user.Email);
+
+        return Result<SuccessApiResponse<RegisterResponseDto>>.Success(new SuccessApiResponse<RegisterResponseDto>
+        {
+            StatusCode = StatusCodes.Status201Created,
+            Message = "User registered successfully. Please check your email for the confirmation code.",
+            Data = new RegisterResponseDto
+            {
+                UserId = user.Id
+            }
+        });
+    }
+    private async Task<Result<SuccessApiResponse<RegisterResponseDto>>> ValidateGuestPromoteRequestAsync(User user, CancellationToken cancellationToken)
+    {
+        var existingUser = await _userRepository.GetUserByIdAsync(user.Id, cancellationToken);
+        if (UserExists(existingUser) == false)
+        {
+            _logger.LogWarning("Guest promotion failed: User with ID {UserId} not found", user.Id);
+            return Result<SuccessApiResponse<RegisterResponseDto>>.Failure(UserErrors.UserNotFound);
+        }
+        if (existingUser!.IsGuest() == false)
+        {
+            _logger.LogWarning("Guest promotion failed: User with ID {UserId} is not a guest user", user.Id);
+            return Result<SuccessApiResponse<RegisterResponseDto>>.Failure(UserErrors.UserIsNotGuest);
+        }
+
+        var uniquenessResult = await ValidateRegisterRequestAsync(user, cancellationToken);
+        if (!uniquenessResult.IsSuccess)        
+        {
+            return uniquenessResult;
+        }
+        return Result<SuccessApiResponse<RegisterResponseDto>>.Success(default!);
+    }
+
+    public async Task<Result<SuccessApiResponse<GuestLoginResponseDto>>> GuestLoginAsync(CancellationToken cancellationToken)
+    {
+        var user = CreateGuestUser();
+        await _userRepository.AddUserAsync(user, cancellationToken);
+        var accessToken = _tokenProvider.GenerateAccessToken(user);
+        _logger.LogInformation("Guest user created and logged in successfully with user ID {UserId}", user.Id);
+        
+        return Result<SuccessApiResponse<GuestLoginResponseDto>>.Success(new SuccessApiResponse<GuestLoginResponseDto>
+        {
+            StatusCode = StatusCodes.Status200OK,
+            Message = "Guest login successful.",
+            Data = new GuestLoginResponseDto
+            {
+                UserId = user.Id,
+                AccessToken = accessToken,
+                RefreshToken = user.RefreshToken.ToString()
+            }
+        });
+    }
+    private static User CreateGuestUser()
+    {
+        return new User(new GuestUserCreationParams());
     }
 }

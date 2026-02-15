@@ -32,7 +32,6 @@ public class UserRepository(AppDbContext dbContext) : IUserRepository
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
-
     public async Task<User?> GetUserByPhoneNumberAsync(string phoneNumber, CancellationToken cancellationToken)
     {
         return await _dbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.PhoneNumber == phoneNumber, cancellationToken);

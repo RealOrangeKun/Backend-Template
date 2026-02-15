@@ -35,4 +35,12 @@ public static class UserErrors
         string.Empty,
         StatusCodes.Status409Conflict
     );
+
+    public static readonly Error UserIsNotGuest = new(
+        UserErrorCodes.UserIsNotGuest,
+        "The specified user is not a guest user.",
+        [],
+        string.Empty,
+        StatusCodes.Status400BadRequest
+    );
 }

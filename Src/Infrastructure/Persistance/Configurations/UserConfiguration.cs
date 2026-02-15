@@ -14,30 +14,24 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
         builder
             .HasKey(u => u.Id);
         builder
-            .HasIndex(u => u.Username)
-            .IsUnique();
+            .HasIndex(u => u.Username);
         builder
-            .HasIndex(u => u.Email)
-            .IsUnique();
+            .HasIndex(u => u.Email);
         builder
             .Property(u => u.Username)
-            .IsRequired()
             .HasMaxLength(UserConstraints.UsernameMaxLength);
         builder
             .Property(u => u.PasswordHash)
-            .IsRequired()
             .HasMaxLength(UserConstraints.PasswordHashLength);
         builder
             .Property(u => u.Email)
-            .IsRequired()
             .HasMaxLength(UserConstraints.EmailMaxLength);
         builder
             .Property(u => u.Role)
             .IsRequired();
         builder
             .Property(u => u.IsEmailVerified)
-            .IsRequired()
-            .HasDefaultValue(false);
+            .IsRequired();
         builder
             .Property(u => u.Address)
             .HasMaxLength(UserConstraints.AddressMaxLength)

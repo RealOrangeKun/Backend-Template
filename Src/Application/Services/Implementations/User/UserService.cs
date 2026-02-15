@@ -27,7 +27,8 @@ public class UserService(IUserRepository userRepo, IJwtTokenProvider tokenProvid
         }
         _logger.LogInformation("Updating profile for user {UserId}", userId);
 
-        user!.UpdateProfile(request.Address, request.PhoneNumber);
+        user!.UpdateAddress(request.Address);
+        user.UpdatePhoneNumber(request.PhoneNumber);
         await _userRepository.UpdateUserAsync(user, ct);
         _logger.LogInformation("Profile updated successfully for user {UserId}", userId);
 

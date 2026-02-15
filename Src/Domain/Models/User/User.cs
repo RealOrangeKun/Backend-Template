@@ -7,16 +7,17 @@ namespace Domain.Models.User;
 public class User
 {
     public Guid Id { get; private set; } = Guid.NewGuid();
-    public string Username { get; private set; } = null!;
-    public string PasswordHash { get; private set; } = null!;
-    public string Email { get; private set; } = null!;
-    public bool IsEmailVerified { get; set; } = false;
+    public string Username { get; init; } = string.Empty;
+    public string PasswordHash { get; set; } = string.Empty;
+    public string Email { get; init; } = string.Empty;
+    public bool IsEmailVerified { get; private set; } = false;
     public Roles Role { get; private set; }
     public AuthScheme AuthScheme { get; private set; }
-    public string Address { get; private set; } = string.Empty;
-    public string PhoneNumber { get; private set; } = string.Empty;
-    public Guid RefreshToken { get; set; } = Guid.NewGuid();
-    public DateTime RefreshTokenExpiryTime { get; set; }    
+    public string Address { get; set; } = string.Empty;
+    public string PhoneNumber { get; set; } = string.Empty;
+    public Guid RefreshToken { get; private set; } = Guid.NewGuid();
+    public DateTime RefreshTokenExpiryTime { get; private set; } = DateTime.UtcNow.AddDays(100);
+    public bool IsGuest() => Role == Roles.Guest;
 
     // for EF Core
     private User() { }
@@ -38,18 +39,33 @@ public class User
         PhoneNumber = userCreationParams.PhoneNumber ?? string.Empty;
     }
 
-    public void UpdateProfile(string? address, string? phoneNumber)
+    public User(GuestUserCreationParams guestUserCreationParams)
     {
-        if (address is not null)
-        {
-            UserGuard.ValidateAddress(address);
-            Address = address;
-        }
+        Role = guestUserCreationParams.Role;
+        AuthScheme = guestUserCreationParams.AuthScheme;
+    }
 
-        if (phoneNumber is not null)
-        {
-            UserGuard.ValidatePhoneNumber(phoneNumber);
-            PhoneNumber = phoneNumber;
-        }
+    public void UpdateAddress(string? address)
+    {
+        UserGuard.ValidateAddress(address);
+        Address = address ?? string.Empty;
+    }
+    public void UpdatePhoneNumber(string? phoneNumber)
+    {
+        UserGuard.ValidatePhoneNumber(phoneNumber);
+        PhoneNumber = phoneNumber ?? string.Empty;
+    }
+    public void MarkEmailAsVerified()
+    {
+        IsEmailVerified = true;
+    }
+    public void GenerateNewRefreshToken()
+    {
+        RefreshToken = Guid.NewGuid();
+        RefreshTokenExpiryTime = DateTime.UtcNow.AddDays(100);
+    }
+    public void SetGuestId(Guid guestId)
+    {
+        Id = guestId;
     }
 }

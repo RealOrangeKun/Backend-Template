@@ -50,6 +50,22 @@ public static class ControllerBaseExtensions
         );
     }
 
+    public static Result<string> GetRefreshTokenCookie(this ControllerBase controller)
+    {
+        var refreshToken = controller.Request.Cookies["refreshToken"] ?? string.Empty;
+        if (string.IsNullOrEmpty(refreshToken))
+        {
+            return Result<string>.Failure(new Error(
+                "AUTH_002",
+                "Refresh token cookie is missing.",
+                [],
+                string.Empty,
+                StatusCodes.Status400BadRequest
+            ));
+        }
+        return Result<string>.Success(refreshToken);
+    }
+
     public static Result<Guid> GetAuthenticatedUserId(this ControllerBase controller)
     {
         var userIdClaim = controller.User.FindFirst(ClaimTypes.NameIdentifier) ?? controller.User.FindFirst("sub");
