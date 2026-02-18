@@ -14,12 +14,12 @@ public class ConfirmEmailRequestValidationTests(CustomWebApplicationFactory fact
     {
         var request = new ConfirmEmailRequestDto
         {
-            Token = ""
+            Otp = ""
         };
 
         var (response, content, _) = await ConfirmEmailTestHelpers.PostConfirmEmailAsync<FailApiResponse>(Client, request);
 
-        AssertBadRequestWithFieldError(response, content, "token");
+        AssertBadRequestWithFieldError(response, content, "Otp");
     }
 
     private static void AssertBadRequestWithFieldError(HttpResponseMessage response, FailApiResponse? content, string fieldName)

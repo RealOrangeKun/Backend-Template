@@ -46,7 +46,8 @@ public static class EnvironmentVariableLoader
             "EMAIL_PORT",
             "EMAIL_USERNAME",
             "EMAIL_PASSWORD",
-            "EMAIL_FROM"
+            "EMAIL_FROM",
+            "EMAIL_ENABLE_SSL"
         );
 
         return new Dictionary<string, string>
@@ -55,7 +56,8 @@ public static class EnvironmentVariableLoader
             { "Port", envVars["EMAIL_PORT"] },
             { "Username", envVars["EMAIL_USERNAME"] },
             { "Password", envVars["EMAIL_PASSWORD"] },
-            { "From", envVars["EMAIL_FROM"] }
+            { "From", envVars["EMAIL_FROM"] },
+            { "EnableSsl", envVars["EMAIL_ENABLE_SSL"] }
         };
     }
 }

@@ -10,14 +10,14 @@ using System.Threading.Tasks;
 namespace Application.Services.Implementations;
 
 public class InternalAuthFacadeService(
-    IInternalAccountService internalAuthService,
-    IUserConfirmationService userConfirmationService,
-    IPasswordResetService passwordResetService,
+    IInternalRegisterationService internalAuthService,
+    IInternalUserVerificationService userConfirmationService,
+    IInternalPasswordResetService passwordResetService,
     IInternalSessionService internalIdentityService) : IInternalAuthFacadeService
 {
-    private readonly IInternalAccountService _internalAuthService = internalAuthService;
-    private readonly IUserConfirmationService _userConfirmationService = userConfirmationService;
-    private readonly IPasswordResetService _passwordResetService = passwordResetService;
+    private readonly IInternalRegisterationService _internalAuthService = internalAuthService;
+    private readonly IInternalUserVerificationService _userConfirmationService = userConfirmationService;
+    private readonly IInternalPasswordResetService _passwordResetService = passwordResetService;
     private readonly IInternalSessionService _internalIdentityService = internalIdentityService;
     
     public Task<Result<SuccessApiResponse<RegisterResponseDto>>> RegisterAsync(RegisterRequestDto registerRequest, CancellationToken cancellationToken)
@@ -27,7 +27,7 @@ public class InternalAuthFacadeService(
         => _internalIdentityService.LoginAsync(loginRequest, ipAddress, deviceId, cancellationToken);
 
     public Task<Result<SuccessApiResponse<LoginResponseDto>>> ConfirmLoginAsync(ConfirmLoginRequestDto confirmLoginRequest, CancellationToken cancellationToken)
-        => _internalIdentityService.ConfirmLoginAsync(confirmLoginRequest, cancellationToken);
+        => _internalIdentityService.ConfirmLoginForNewDeviceAsync(confirmLoginRequest, cancellationToken);
 
     public Task<Result<SuccessApiResponse<ConfirmEmailResponseDto>>> ConfirmEmailAsync(ConfirmEmailRequestDto confirmEmailRequest, Guid deviceId, CancellationToken cancellationToken)
         => _userConfirmationService.ConfirmEmailAsync(confirmEmailRequest, deviceId, cancellationToken);

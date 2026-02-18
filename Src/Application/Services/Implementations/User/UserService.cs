@@ -11,7 +11,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Application.Services.Implementations;
 
-public class UserService(IUserRepository userRepo, IJwtTokenProvider tokenProvider, ILogger<UserService> logger) : IUserService
+public class UserService(IUserRepository userRepo, IRefreshTokenProvider tokenProvider, ILogger<UserService> logger) : IUserService
 {
     private readonly IUserRepository _userRepository = userRepo;
     private readonly ILogger<UserService> _logger = logger;

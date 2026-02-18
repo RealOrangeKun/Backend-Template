@@ -9,20 +9,25 @@ using System.Threading;
 using System.Threading.Tasks;
 using Application.Utils;
 using Domain.Models.User;
+using Application.Services.Implementations.Auth.InternalAuth;
+using Application.Services.Implementations.Misc;
+using Application.Services.Interfaces.Auth.InternalAuth;
+using Domain.Extensions;
+using Application.DTOs.Auth.InternalAuth;
 
 namespace Application.Services.Implementations;
 
-public class PasswordResetService(
+public class InternalPasswordResetService(
     IUserRepository userRepository,
-    IEmailService emailService,
-    ILogger<PasswordResetService> logger,
-    ConfirmationTokenCacheService tokenCacheService
-) : IPasswordResetService
+    ILogger<InternalPasswordResetService> logger,
+    PasswordResetEmailSender emailService,
+    IOtpService<PasswordResetOtpPayload> otpService
+) : IInternalPasswordResetService
 {
     private readonly IUserRepository _userRepository = userRepository;
-    private readonly IEmailService _emailService = emailService;
-    private readonly ILogger<PasswordResetService> _logger = logger;
-    private readonly ConfirmationTokenCacheService _tokenCacheService = tokenCacheService;
+    private readonly PasswordResetEmailSender _emailService = emailService;
+    private readonly ILogger<InternalPasswordResetService> _logger = logger;
+    private readonly IOtpService<PasswordResetOtpPayload> _otpService = otpService;
 
     public async Task<Result<SuccessApiResponse>> ForgetPasswordAsync(ForgetPasswordRequestDto forgetPasswordRequest, CancellationToken cancellationToken)
     {
@@ -33,14 +38,10 @@ public class PasswordResetService(
         {
             return validationResult;
         }
-        _logger.LogInformation("Forget password request validated for {Email}", email);
 
-        var confirmationToken = ConfirmationTokenCacheService.GenerateRandomToken();
-        
-        var storedToken = $"reset_password:{confirmationToken}";
-        await _tokenCacheService.SetTokenAsync(storedToken, user!.Id, cancellationToken);
-
-        await _emailService.SendPasswordResetEmailAsync(email, confirmationToken, cancellationToken);
+        var otp = OtpGenerator.GenerateOtp();
+        await _otpService.CacheAsync(new PasswordResetOtpPayload(user!.Id), otp, cancellationToken);
+        await _emailService.SendAsync(email, otp, cancellationToken);
         _logger.LogInformation("Password reset email sent successfully to {Email}", email);
 
         return Result<SuccessApiResponse>.Success(new SuccessApiResponse
@@ -51,12 +52,12 @@ public class PasswordResetService(
     }
     private async Task<Result<SuccessApiResponse>> ValidateForgetPasswordRequestAsync(User? user, CancellationToken cancellationToken)
     {
-        if (UserNotFound(user))
+        if (user == null)
         {
             _logger.LogWarning("Forget password failed: User not found");
             return Result<SuccessApiResponse>.Failure(UserErrors.UserNotFound);
         }
-        if (EmailNotConfirmed(user!))
+        if (user.IsNotEmailVerified())
         {
             _logger.LogWarning("Forget password failed: Email not confirmed");
             return Result<SuccessApiResponse>.Failure(AuthErrors.EmailNotConfirmed);
@@ -66,7 +67,12 @@ public class PasswordResetService(
 
     public async Task<Result<SuccessApiResponse>> ResetPasswordAsync(ResetPasswordRequestDto resetPasswordRequest, CancellationToken cancellationToken)
     {
-        var userId = await _tokenCacheService.GetUserIdByTokenAsync($"reset_password:{resetPasswordRequest.Token}", cancellationToken);
+        var userId = (await _otpService.GetDataAsync(resetPasswordRequest.Otp, cancellationToken))?.UserId ?? Guid.Empty;
+        if (userId == Guid.Empty)
+        {
+            _logger.LogWarning("Password reset failed: Invalid OTP");
+            return Result<SuccessApiResponse>.Failure(AuthErrors.InvalidToken);
+        }
         var user = await _userRepository.GetUserByIdAsync(userId, cancellationToken);
         var validationResult = await ValidateResetPasswordRequestAsync(user, cancellationToken);
         if (!validationResult.IsSuccess)
@@ -74,7 +80,6 @@ public class PasswordResetService(
             return validationResult;
         }
 
-        // User email is guaranteed to be non-null after validation
         var newHashedPassword = BCrypt.Net.BCrypt.HashPassword(resetPasswordRequest.NewPassword, BCrypt.Net.BCrypt.GenerateSalt());
         await _userRepository.UpdatePasswordByEmailAsync(user!.Email!, newHashedPassword, cancellationToken);
         _logger.LogInformation("Password reset successfully for user {UserId}", userId);
@@ -87,35 +92,11 @@ public class PasswordResetService(
     }
     private async Task<Result<SuccessApiResponse>> ValidateResetPasswordRequestAsync(User? user, CancellationToken cancellationToken)
     {
-        if (InvalidUser(user))
+        if (user == null || user.IsNotEmailVerified())
         {
             _logger.LogWarning("Password reset failed: Invalid token for user {UserId}", user?.Id);
             return Result<SuccessApiResponse>.Failure(AuthErrors.InvalidToken);
         }
         return Result<SuccessApiResponse>.Success(default!);
-    }
-    private static bool InvalidUser(User? user)
-    {
-        if (UserNotFound(user) || EmailNotConfirmed(user!))
-        {
-            return true;
-        }
-        return false;
-    }
-    private static bool UserNotFound(User? user)
-    {
-        if (user == null)
-        {
-            return true;
-        }
-        return false;
-    }
-    private static bool EmailNotConfirmed(User user)
-    {
-        if (user.IsEmailVerified == false)
-        {
-            return true;
-        }
-        return false;
     }
 }

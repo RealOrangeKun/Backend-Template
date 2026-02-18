@@ -5,9 +5,11 @@ using Application.Constants.ApiErrors;
 using Application.DTOs.ExternalAuth;
 using Application.DTOs.User;
 using Application.Repositories.Interfaces;
+using Application.Services.Implementations.Misc;
 using Application.Services.Interfaces;
 using Application.Utils;
 using Domain.Enums;
+using Domain.Extensions;
 using Domain.Models;
 using Domain.Models.User;
 using Domain.Models.UserRefreshTokens;
@@ -22,16 +24,18 @@ namespace Application.Services.Implementations;
 
 public class ExternalAuthService(
     IUserRepository userRepo,
-    IJwtTokenProvider tokenProvider, 
+    IRefreshTokenProvider refreshTokenprovider, 
     IConfiguration configuration,
     IGoogleAuthValidator googleAuthValidator,
     IUserRefreshTokensRepository userRefreshTokensRepository,
+    JwtTokenProvider jwtTokenProvider,
     ILogger<ExternalAuthService> logger) 
     : IExternalAuthService
 {
     private readonly IUserRepository _userRepository = userRepo;
     private readonly IUserRefreshTokensRepository _userRefreshTokensRepository = userRefreshTokensRepository;
-    private readonly IJwtTokenProvider _tokenProvider = tokenProvider;
+    private readonly IRefreshTokenProvider _refreshTokenProvider = refreshTokenprovider;
+    private readonly JwtTokenProvider _jwtTokenProvider = jwtTokenProvider;
     private readonly IConfiguration _configuration = configuration;
     private readonly IGoogleAuthValidator _googleAuthValidator = googleAuthValidator;
     private readonly ILogger<ExternalAuthService> _logger = logger;
@@ -46,24 +50,27 @@ public class ExternalAuthService(
         var payload = payloadResult.Data;
         
         var user = await _userRepository.GetUserByGoogleIdAsync(payload.Subject, cancellationToken);
-        if (UserNotFound(user)) // not found by google id
+        // We have this part to allow internal login scheme users to be able to also login with google
+        if (user == null) // not found by google id
         {
             user = await _userRepository.GetUserByEmailAsync(payload.Email, cancellationToken);
-            if (UserNotFound(user)) // not found by email
+            if (user == null) // not found by email
             {
                 user = await CreateExternalUserAsync(payload, cancellationToken);
             }
-            else // found by email but not linked to google, link the google account
+            // found by email but not linked to google, link the google account
+            // the user is an internal auth scheme user, so we need to update the user to be eligible for external login
+            else 
             {
                 user = await UpdateUserToBeEligibleForExternalLogin(user!, payload, cancellationToken);
             }
         }
 
-        var refreshToken = GenerateNewRefreshToken();
-        var userRefreshToken = new UserRefreshToken(user!.Id, HashRefreshToken(refreshToken));
-        await _userRefreshTokensRepository.AddUserRefreshTokenAsync(userRefreshToken, cancellationToken);
+        var refreshToken = _refreshTokenProvider.GenerateNewRefreshToken();
+        await _userRefreshTokensRepository
+            .AddUserRefreshTokenAsync(new UserRefreshToken(user!.Id, _refreshTokenProvider.HashRefreshToken(refreshToken)), cancellationToken);
 
-        var accessToken = _tokenProvider.GenerateAccessToken(user);
+        var accessToken = _jwtTokenProvider.GenerateAccessToken(user);
         _logger.LogInformation("Google login successful for user {UserId}", user.Id);
 
         return Result<SuccessApiResponse<GoogleAuthResponseDto>>.Success(new SuccessApiResponse<GoogleAuthResponseDto>
@@ -77,10 +84,6 @@ public class ExternalAuthService(
                 UserId = user.Id
             }
         });
-    }
-    private static bool UserNotFound(User? user)
-    {
-        return user == null;
     }
     private async Task<Result<GoogleJsonWebSignature.Payload>> ValidateAndGetGooglePayloadAsync(string idToken)
     {
@@ -104,9 +107,7 @@ public class ExternalAuthService(
         }
     }
     private async Task<User> CreateExternalUserAsync(GoogleJsonWebSignature.Payload payload, CancellationToken ct)
-    {
-        _logger.LogInformation("Creating new external user for email: {Email}", payload.Email);
-        
+    {        
         var userCreationParams = new ExternalUserCreationParams
         {
             Email = payload.Email,
@@ -119,24 +120,6 @@ public class ExternalAuthService(
 
         await _userRepository.AddUserAsync(user, ct);
         return user;
-    }
-    private static string GenerateNewRefreshToken()
-    {
-        // 32 bytes of randomness provides 256 bits of entropy
-        var randomNumber = new byte[32];
-        using var rng = RandomNumberGenerator.Create();
-        rng.GetBytes(randomNumber);
-        
-        // Convert to Base64 to make it a URL-safe string for the user
-        return Convert.ToBase64String(randomNumber);
-    }
-    private static string HashRefreshToken(string refreshToken)
-    {
-        var inputBytes = Encoding.UTF8.GetBytes(refreshToken);
-        var hashBytes = SHA256.HashData(inputBytes);
-
-        // Convert the byte array to a lowercase 64-character hexadecimal string
-        return Convert.ToHexString(hashBytes).ToLower();
     }
 
     public async Task<Result<SuccessApiResponse<GoogleAuthResponseDto>>> LinkGoogleAccountAsync(GoogleAuthRequestDto authRequest, Guid userId, CancellationToken cancellationToken)
@@ -157,11 +140,11 @@ public class ExternalAuthService(
 
         await UpdateUserToBeEligibleForExternalLogin(user!, payload, cancellationToken);
 
-        var refreshToken = GenerateNewRefreshToken();
-        var userRefreshToken = new UserRefreshToken(user!.Id, HashRefreshToken(refreshToken));
-        await _userRefreshTokensRepository.AddUserRefreshTokenAsync(userRefreshToken, cancellationToken);
+        var refreshToken = _refreshTokenProvider.GenerateNewRefreshToken();
+        await _userRefreshTokensRepository
+            .AddUserRefreshTokenAsync(new UserRefreshToken(user!.Id, _refreshTokenProvider.HashRefreshToken(refreshToken)), cancellationToken);
 
-        var accessToken = _tokenProvider.GenerateAccessToken(user!);
+        var accessToken = _jwtTokenProvider.GenerateAccessToken(user!);
         _logger.LogInformation("Google account linked successfully for user {UserId}", user!.Id);
 
         return Result<SuccessApiResponse<GoogleAuthResponseDto>>.Success(new SuccessApiResponse<GoogleAuthResponseDto>
@@ -178,12 +161,12 @@ public class ExternalAuthService(
     }
     private async Task<Result<User>> ValidateGoogleAccountLinkingAsync(GoogleJsonWebSignature.Payload payload, User? user, CancellationToken ct)
     {
-        if (UserNotFound(user))
+        if (user == null)
         {
             _logger.LogWarning("Cannot link Google account: User not found");
             return Result<User>.Failure(UserErrors.UserNotFound);
         }
-        if (NotGuestUser(user!))
+        if (user.IsNotGuest())
         {
             _logger.LogWarning("Cannot link Google account: User {UserId} is not a guest user", user!.Id);
             return Result<User>.Failure(UserErrors.UserIsNotGuest);
@@ -194,10 +177,6 @@ public class ExternalAuthService(
             return Result<User>.Failure(UserErrors.EmailAlreadyExists);
         }
         return Result<User>.Success(user!);
-    }
-    private static bool NotGuestUser(User user)
-    {
-        return !user.IsGuest();
     }
     private async Task<bool> IsEmailInUseAsync(string email, CancellationToken cancellationToken)
     {

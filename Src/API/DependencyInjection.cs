@@ -3,6 +3,8 @@ using Application.Constants;
 using Application.Utils;
 using Asp.Versioning;
 using FluentValidation.AspNetCore;
+using MailKit.Net.Smtp;
+using MailKit.Security;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Mvc;

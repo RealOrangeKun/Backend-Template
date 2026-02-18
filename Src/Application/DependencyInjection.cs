@@ -4,10 +4,16 @@ using Application.Services.Implementations;
 using Application.Validators.Auth;
 using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
-using System.Net.Mail;
-using System.Net;
 using MassTransit;
 using Application.Services.Implementations.Auth;
+using Application.Services.Implementations.Auth.InternalAuth;
+using Application.Services.Interfaces.Auth;
+using Application.Services.Interfaces.Auth.InternalAuth;
+using Application.Services.Implementations.Misc;
+using Application.DTOs.Auth.InternalAuth;
+using FluentEmail.Smtp;
+using FluentEmail.Core.Interfaces;
+using System.Net;
 
 namespace Application;
 
@@ -39,20 +45,20 @@ public static class DependencyInjection
 
     private static IServiceCollection AddEmailServices(this IServiceCollection services, Dictionary<string, string> emailConfig)
     {
+        var enableSsl = bool.Parse(emailConfig["EnableSsl"]);
         services
-            .AddFluentEmail(emailConfig["From"])
-            .AddSmtpSender(new SmtpClient(emailConfig["Host"], int.Parse(emailConfig["Port"]))
-            {
-                EnableSsl = !bool.TryParse(Environment.GetEnvironmentVariable("EMAIL_ENABLE_SSL"), out var enableSsl) || enableSsl,
-                DeliveryMethod = SmtpDeliveryMethod.Network,
-                UseDefaultCredentials = false,
-                Credentials = new NetworkCredential(
-                    emailConfig["Username"],
-                    emailConfig["Password"]
-                ),
-                Timeout = 20000
-            });
-        services.AddScoped<IEmailService, EmailService>();
+            .AddFluentEmail(emailConfig["From"]);
+        
+        services.AddScoped<ISender>(sp => new SmtpSender(new System.Net.Mail.SmtpClient(emailConfig["Host"])
+        {
+            Port = int.Parse(emailConfig["Port"]),
+            Credentials = new System.Net.NetworkCredential(emailConfig["Username"], emailConfig["Password"]),
+            EnableSsl = enableSsl
+        }));
+        
+        services.AddScoped<RegisterationConfirmationEmailSender>();
+        services.AddScoped<NewDeviceConfirmationEmailSender>();
+        services.AddScoped<PasswordResetEmailSender>();
         return services;
     }
 
@@ -68,16 +74,22 @@ public static class DependencyInjection
 
     private static IServiceCollection AddApplicationServices(this IServiceCollection services)
     {
-        // Cache Services
-        services.AddScoped<ConfirmationTokenCacheService>();
+
+        // Otp Service & Strategies
+        services.AddScoped(typeof(IOtpService<>), typeof(OtpService<>));
+        services.AddScoped<IOtpStrategy<RegistrationOtpPayload>, RegistrationOtpStrategy>();
+        services.AddScoped<IOtpStrategy<NewDeviceOtpPayload>, NewDeviceOtpStrategy>();
+        services.AddScoped<IOtpStrategy<PasswordResetOtpPayload>, PasswordResetOtpStrategy>();
 
         // Auth Services
-        services.AddScoped<IPasswordResetService, PasswordResetService>();
-        services.AddScoped<IInternalAccountService, InternalAccountService>();
+        services.AddScoped<ILoginThrottlingService, LoginThrottlingService>();
+        services.AddScoped<JwtTokenProvider>();
+        services.AddScoped<IInternalPasswordResetService, InternalPasswordResetService>();
+        services.AddScoped<IInternalRegisterationService, InternalRegisterationService>();
         services.AddScoped<IInternalSessionService, InternalSessionService>();
         services.AddScoped<IInternalAuthFacadeService, InternalAuthFacadeService>();
-        services.AddScoped<IUserConfirmationService, UserConfirmationService>();
-        services.AddScoped<IJwtTokenProvider, JwtTokenProvider>();
+        services.AddScoped<IInternalUserVerificationService, InternalUserVerificationService>();
+        services.AddScoped<IRefreshTokenProvider, RefreshTokenProvider>();
         services.AddScoped<IGoogleAuthValidator, GoogleAuthValidator>();
         services.AddScoped<IExternalAuthService, ExternalAuthService>();
 

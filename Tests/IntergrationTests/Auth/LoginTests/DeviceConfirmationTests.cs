@@ -104,7 +104,7 @@ public class DeviceConfirmationTests(CustomWebApplicationFactory factory) : Base
 
         var confirmRequest = new ConfirmLoginRequestDto
         {
-            Token = token
+            Otp = token
         };
 
         // Act: Confirm the new device login
@@ -141,7 +141,7 @@ public class DeviceConfirmationTests(CustomWebApplicationFactory factory) : Base
         // Arrange
         var confirmRequest = new ConfirmLoginRequestDto
         {
-            Token = "invalid-token"
+            Otp = "invalid-token"
         };
 
         // Act
@@ -172,7 +172,7 @@ public class DeviceConfirmationTests(CustomWebApplicationFactory factory) : Base
 
         var confirmRequest = new ConfirmLoginRequestDto
         {
-            Token = token
+            Otp = token
         };
 
         // Act

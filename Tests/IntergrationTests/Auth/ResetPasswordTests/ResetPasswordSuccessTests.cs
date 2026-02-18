@@ -26,7 +26,7 @@ public class ResetPasswordSuccessTests(CustomWebApplicationFactory factory) : Ba
         var newPassword = "NewPassword123";
         var request = new ResetPasswordRequestDto
         {
-            Token = token,
+            Otp = token,
             NewPassword = newPassword
         };
 

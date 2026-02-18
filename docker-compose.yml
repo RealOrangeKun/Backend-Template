@@ -64,6 +64,7 @@ services:
       - ./Nginx/nginx.conf:/etc/nginx/nginx.conf:ro,Z
       - ./Nginx/ssl:/etc/nginx/ssl:ro,Z
       - nginx_cache:/var/cache/nginx:Z
+      - ./Tests/test_oauth:/usr/share/nginx/html/test_oauth:ro,Z
     depends_on:
       - api
 
@@ -73,6 +74,8 @@ services:
     restart: unless-stopped
     networks:
       - backend
+    ports:
+      - "5341:80"
     environment:
       - ACCEPT_EULA=Y
       - SEQ_FIRSTRUN_NOAUTHENTICATION=true

@@ -7,7 +7,7 @@ public class ResetPasswordRequestDtoValidator : AbstractValidator<ResetPasswordR
 {
     public ResetPasswordRequestDtoValidator()
     {
-        RuleFor(x => x.Token)
+        RuleFor(x => x.Otp)
             .NotEmpty().WithMessage("Reset token is required.");
 
         RuleFor(x => x.NewPassword)

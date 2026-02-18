@@ -1,5 +1,5 @@
 namespace Application.DTOs.Auth;
 public record ConfirmEmailRequestDto
 {
-    public string Token { get; init; } = default!;
+    public string Otp { get; init; } = default!;
 }

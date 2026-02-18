@@ -74,7 +74,7 @@ public class RefreshTokenSecurityTests(CustomWebApplicationFactory factory) : Ba
         await conn.OpenAsync();
 
         var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT refresh_token_hash FROM user_refresh_tokens WHERE user_id = @userId LIMIT 1;";
+        cmd.CommandText = "SELECT refresh_token_hash FROM user_refresh_tokens WHERE user_id = @userId AND is_used = false LIMIT 1;";
         cmd.Parameters.AddWithValue("@userId", userId);
 
         var result = await cmd.ExecuteScalarAsync();

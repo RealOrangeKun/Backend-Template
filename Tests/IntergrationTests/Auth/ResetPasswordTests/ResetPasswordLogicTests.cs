@@ -23,7 +23,7 @@ public class ResetPasswordLogicTests(CustomWebApplicationFactory factory) : Base
 
         var request = new ResetPasswordRequestDto
         {
-            Token = "wrong-token",
+            Otp = "wrong-token",
             NewPassword = "NewPassword123"
         };
 
@@ -42,7 +42,7 @@ public class ResetPasswordLogicTests(CustomWebApplicationFactory factory) : Base
         // Arrange
         var request = new ResetPasswordRequestDto
         {
-            Token = "123456",
+            Otp = "123456",
             NewPassword = "NewPassword123"
         };
 
@@ -62,7 +62,7 @@ public class ResetPasswordLogicTests(CustomWebApplicationFactory factory) : Base
 
         var request = new ResetPasswordRequestDto
         {
-            Token = "123456",
+            Otp = "123456",
             NewPassword = "NewPassword123"
         };
 

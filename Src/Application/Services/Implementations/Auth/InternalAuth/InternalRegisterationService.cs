@@ -5,45 +5,45 @@ using Domain.Models.User;
 using Domain.Shared;
 using Domain.Enums;
 using Application.Constants.ApiErrors;
-using Mapster;
 using Application.Utils;
 using Application.Repositories.Interfaces;
-using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
+using Domain.Extensions;
+using Application.Services.Interfaces.Auth.InternalAuth;
+using Application.Services.Implementations.Auth.InternalAuth;
+using Application.DTOs.Auth.InternalAuth;
+using Application.Services.Implementations.Misc;
 
 namespace Application.Services.Implementations;
 
-public class InternalAccountService(
+public class InternalRegisterationService(
         IUserRepository userRepository,
-        IEmailService emailService,
-        ILogger<InternalAccountService> logger,
-        ConfirmationTokenCacheService tokenCacheService
-    ) : IInternalAccountService
+        RegisterationConfirmationEmailSender registrationEmailSender,
+        ILogger<InternalRegisterationService> logger,
+        IOtpService<RegistrationOtpPayload> _otpService
+    ) : IInternalRegisterationService
 {
     private readonly IUserRepository _userRepository = userRepository;
-    private readonly IEmailService _emailService = emailService;
-    private readonly ILogger<InternalAccountService> _logger = logger;
-    private readonly ConfirmationTokenCacheService _tokenCacheService = tokenCacheService;
+    private readonly ILogger<InternalRegisterationService> _logger = logger;
+    private readonly RegisterationConfirmationEmailSender _emailService = registrationEmailSender;
+    private readonly IOtpService<RegistrationOtpPayload> _otpService = _otpService;
 
     public async Task<Result<SuccessApiResponse<RegisterResponseDto>>> RegisterAsync(RegisterRequestDto registerRequest, CancellationToken cancellationToken)
     {
         var user = CreateUserForRegisteration(registerRequest);
-        var uniquenessResult = await ValidateRegisterRequestAsync(user, cancellationToken);
-        if (!uniquenessResult.IsSuccess)
+        var registrationValidationResult = await ValidateRegisterRequestAsync(user, cancellationToken);
+        if (!registrationValidationResult.IsSuccess)
         {
-            return uniquenessResult;
+            return registrationValidationResult;
         }
-        _logger.LogInformation("User identifiers are unique for email: {Email}, username: {Username}", user.Email, user.Username);
 
         await _userRepository.AddUserAsync(user, cancellationToken);
         _logger.LogInformation("User created successfully with email: {Email}", user.Email);
 
-        var confirmationToken = ConfirmationTokenCacheService.GenerateRandomToken();
-        var storedToken = $"new_user:{confirmationToken}";
-        await _tokenCacheService.SetTokenAsync(storedToken, user.Id, cancellationToken);
-
-        await _emailService.SendConfirmationEmailAsync(user.Email!, confirmationToken, cancellationToken);
+        string otp = OtpGenerator.GenerateOtp();
+        await _otpService.CacheAsync(new RegistrationOtpPayload(user.Id), otp, cancellationToken);
+        await _emailService.SendAsync(user.Email!, otp, cancellationToken);
         _logger.LogInformation("Confirmation email sent successfully to {Email}", user.Email);
 
         return Result<SuccessApiResponse<RegisterResponseDto>>.Success(new SuccessApiResponse<RegisterResponseDto>
@@ -63,19 +63,13 @@ public class InternalAccountService(
             Email = registerRequest.Email,
             Username = registerRequest.Username,
             PhoneNumber = registerRequest.PhoneNumber,
-            PasswordHash = HashPassword(registerRequest.Password),
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword(registerRequest.Password, BCrypt.Net.BCrypt.GenerateSalt()),
             Role = Roles.User
         };
-        var user = new User(userCreationParams);
-        return user;
-    }
-    private static string HashPassword(string password)
-    {
-        return BCrypt.Net.BCrypt.HashPassword(password, BCrypt.Net.BCrypt.GenerateSalt());
+        return new User(userCreationParams);
     }
     private async Task<Result<SuccessApiResponse<RegisterResponseDto>>> ValidateRegisterRequestAsync(User user, CancellationToken cancellationToken)
     {
-        // User email and username are guaranteed to be non-null for registration (validated in User constructor)
         if (await IsEmailInUseAsync(user.Email!, cancellationToken))
         {
             _logger.LogWarning("Registration failed: Email {Email} already in use", user.Email);
@@ -110,22 +104,18 @@ public class InternalAccountService(
     {
         var user = CreateUserForRegisteration(registerRequest);
         user.SetGuestId(userId);
-
-        var validateGuestPromoteRequestAsyncResult = await ValidateGuestPromoteRequestAsync(user, cancellationToken);
-        if (!validateGuestPromoteRequestAsyncResult.IsSuccess)        
+        var validateGuestPromototionRequestAsyncResult = await ValidateGuestPromoteRequestAsync(user, cancellationToken);
+        if (!validateGuestPromototionRequestAsyncResult.IsSuccess)        
         {
-            return validateGuestPromoteRequestAsyncResult;
+            return validateGuestPromototionRequestAsyncResult;
         }
-        _logger.LogInformation("User identifiers are unique for email: {Email}, username: {Username}", user.Email, user.Username);
 
         await _userRepository.UpdateUserAsync(user, cancellationToken);
         _logger.LogInformation("User promoted successfully with email: {Email}", user.Email);
 
-        var confirmationToken = ConfirmationTokenCacheService.GenerateRandomToken();
-        var storedToken = $"new_user:{confirmationToken}";
-        await _tokenCacheService.SetTokenAsync(storedToken, user.Id, cancellationToken);
-
-        await _emailService.SendConfirmationEmailAsync(user.Email!, confirmationToken, cancellationToken);
+        var otp = OtpGenerator.GenerateOtp();
+        await _otpService.CacheAsync(new RegistrationOtpPayload(user.Id), otp, cancellationToken);
+        await _emailService.SendAsync(user.Email!, otp, cancellationToken);
         _logger.LogInformation("Confirmation email sent successfully to {Email}", user.Email);
 
         return Result<SuccessApiResponse<RegisterResponseDto>>.Success(new SuccessApiResponse<RegisterResponseDto>
@@ -141,31 +131,22 @@ public class InternalAccountService(
     private async Task<Result<SuccessApiResponse<RegisterResponseDto>>> ValidateGuestPromoteRequestAsync(User user, CancellationToken cancellationToken)
     {
         var existingUser = await _userRepository.GetUserByIdAsync(user.Id, cancellationToken);
-        if (UserNotFound(existingUser))
+        if (existingUser == null)
         {
             _logger.LogWarning("Guest promotion failed: User with ID {UserId} not found", user.Id);
             return Result<SuccessApiResponse<RegisterResponseDto>>.Failure(UserErrors.UserNotFound);
         }
-        if (existingUser!.IsGuest() == false)
+        if (existingUser.IsGuest() == false)
         {
             _logger.LogWarning("Guest promotion failed: User with ID {UserId} is not a guest user", user.Id);
             return Result<SuccessApiResponse<RegisterResponseDto>>.Failure(UserErrors.UserIsNotGuest);
         }
 
-        var uniquenessResult = await ValidateRegisterRequestAsync(user, cancellationToken);
-        if (!uniquenessResult.IsSuccess)        
+        var RegisterRequestValidationResult = await ValidateRegisterRequestAsync(user, cancellationToken);
+        if (!RegisterRequestValidationResult.IsSuccess)        
         {
-            return uniquenessResult;
+            return RegisterRequestValidationResult;
         }
         return Result<SuccessApiResponse<RegisterResponseDto>>.Success(default!);
-    }
-    private bool UserNotFound(User? user)
-    {
-        if (user == null)
-        {
-            _logger.LogWarning("User not found");
-            return true;
-        }
-        return false;
     }
 }

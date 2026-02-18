@@ -33,7 +33,7 @@ public class DeviceConfirmationSecurityTests(CustomWebApplicationFactory factory
         // Act: Try to confirm device using user1's token (this should fail - no validation in code!)
         var confirmRequest = new ConfirmLoginRequestDto
         {
-            Token = token
+            Otp = token
         };
 
         var (response, content, _) = await ConfirmLoginTestHelpers.PostConfirmLoginAsync<SuccessApiResponse<LoginResponseDto>>(Client, confirmRequest);
@@ -65,7 +65,7 @@ public class DeviceConfirmationSecurityTests(CustomWebApplicationFactory factory
         // Act: Try to confirm with expired token
         var confirmRequest = new ConfirmLoginRequestDto
         {
-            Token = token
+            Otp = token
         };
 
         var (response, content, _) = await ConfirmLoginTestHelpers.PostConfirmLoginAsync<FailApiResponse>(Client, confirmRequest);
@@ -91,7 +91,7 @@ public class DeviceConfirmationSecurityTests(CustomWebApplicationFactory factory
 
         var confirmRequest = new ConfirmLoginRequestDto
         {
-            Token = token
+            Otp = token
         };
 
         // Act: Confirm device first time
@@ -130,7 +130,7 @@ public class DeviceConfirmationSecurityTests(CustomWebApplicationFactory factory
             // Act
             var confirmRequest = new ConfirmLoginRequestDto
             {
-                Token = malformedToken
+                Otp = malformedToken
             };
 
             var (response, _, _) = await ConfirmLoginTestHelpers.PostConfirmLoginAsync<FailApiResponse>(Client, confirmRequest);
@@ -157,7 +157,7 @@ public class DeviceConfirmationSecurityTests(CustomWebApplicationFactory factory
         // Act: Confirm device
         var confirmRequest = new ConfirmLoginRequestDto
         {
-            Token = token
+            Otp = token
         };
 
         var (response, _, _) = await ConfirmLoginTestHelpers.PostConfirmLoginAsync<SuccessApiResponse<LoginResponseDto>>(Client, confirmRequest);

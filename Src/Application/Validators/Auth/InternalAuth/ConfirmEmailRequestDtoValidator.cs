@@ -7,7 +7,7 @@ public class ConfirmEmailRequestDtoValidator : AbstractValidator<ConfirmEmailReq
 {
     public ConfirmEmailRequestDtoValidator()
     {
-        RuleFor(x => x.Token)
+        RuleFor(x => x.Otp)
             .NotEmpty().WithMessage("Token is required");
     }
 }

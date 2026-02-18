@@ -15,7 +15,7 @@ public class ResetPasswordRequestValidationTests(CustomWebApplicationFactory fac
         // Arrange
         var request = new ResetPasswordRequestDto
         {
-            Token = "",
+            Otp = "",
             NewPassword = ""
         };
 
@@ -32,7 +32,7 @@ public class ResetPasswordRequestValidationTests(CustomWebApplicationFactory fac
         // Arrange
         var request = new ResetPasswordRequestDto
         {
-            Token = "123456",
+            Otp = "123456",
             NewPassword = "short"
         };
 

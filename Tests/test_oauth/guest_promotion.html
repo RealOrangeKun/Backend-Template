@@ -39,7 +39,7 @@
         async function loginAsGuest() {
             document.getElementById('guestToken').innerText = 'Logging in...';
             try {
-                const res = await fetch('http://localhost:5000/api/v1/internal-auth/login/guest', {
+                const res = await fetch('https://localhost/api/v1/internal-auth/login/guest', {
                     method: 'POST',
                     headers: { 'Idempotency-Key': crypto.randomUUID() }
                 });
@@ -64,7 +64,7 @@
             document.getElementById('response').innerText = 'Linking Google account...';
 
             try {
-                const res = await fetch('http://localhost:5000/api/v1/external-auth/link/google', {
+                const res = await fetch('https://localhost/api/v1/external-auth/link/google', {
                     method: 'POST',
                     headers: { 
                         'Content-Type': 'application/json',

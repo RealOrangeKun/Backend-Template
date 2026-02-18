@@ -25,7 +25,7 @@ public class ConfirmEmailLogicTests(CustomWebApplicationFactory factory) : BaseI
         // 2. Try to confirm with an invalid token
         var request = new ConfirmEmailRequestDto
         {
-            Token = "InvalidToken"
+            Otp = "InvalidToken"
         };
 
         var (response, content, _) = await ConfirmEmailTestHelpers.PostConfirmEmailAsync<FailApiResponse>(Client, request);
@@ -48,7 +48,7 @@ public class ConfirmEmailLogicTests(CustomWebApplicationFactory factory) : BaseI
 
         var request = new ConfirmEmailRequestDto
         {
-            Token = validToken
+            Otp = validToken
         };
 
         var (response, content, _) = await ConfirmEmailTestHelpers.PostConfirmEmailAsync<FailApiResponse>(Client, request);
@@ -64,7 +64,7 @@ public class ConfirmEmailLogicTests(CustomWebApplicationFactory factory) : BaseI
     {
         var request = new ConfirmEmailRequestDto
         {
-            Token = "SomeToken"
+            Otp = "SomeToken"
         };
 
         var (response, content, _) = await ConfirmEmailTestHelpers.PostConfirmEmailAsync<FailApiResponse>(Client, request);

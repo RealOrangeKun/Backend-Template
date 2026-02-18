@@ -28,7 +28,7 @@
             document.getElementById('response').innerText = 'Sending to backend...';
 
             try {
-                const res = await fetch('http://localhost:5000/api/v1/external-auth/login/google', {
+                const res = await fetch('https://localhost/api/v1/external-auth/login/google', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ idToken: response.credential })

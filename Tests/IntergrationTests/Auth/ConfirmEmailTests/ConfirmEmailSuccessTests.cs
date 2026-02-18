@@ -23,7 +23,7 @@ public class ConfirmEmailSuccessTests(CustomWebApplicationFactory factory) : Bas
 
         var confirmRequest = new ConfirmEmailRequestDto
         {
-            Token = token
+            Otp = token
         };
 
         var (confirmResponse, confirmContent, _) = await ConfirmEmailTestHelpers.PostConfirmEmailAsync<SuccessApiResponse<ConfirmEmailResponseDto>>(Client, confirmRequest);
@@ -35,13 +35,6 @@ public class ConfirmEmailSuccessTests(CustomWebApplicationFactory factory) : Bas
         // Assert deviceId cookie is set
         var cookies = confirmResponse.Headers.GetValues("Set-Cookie");
         Assert.Contains(cookies, c => c.StartsWith("deviceId="));
-
-        // Verify token is removed from Redis
-        using var scope = Factory.Services.CreateScope();
-        var cache = scope.ServiceProvider.GetRequiredService<IDistributedCache>();
-        var key = $"new_user:{token}";
-        var tokenAfterConfirmation = await cache.GetStringAsync(key);
-        Assert.Null(tokenAfterConfirmation);
     }
 
     [Fact]
@@ -58,7 +51,7 @@ public class ConfirmEmailSuccessTests(CustomWebApplicationFactory factory) : Bas
 
         var confirmRequest = new ConfirmEmailRequestDto
         {
-            Token = token
+            Otp = token
         };
 
         // Act

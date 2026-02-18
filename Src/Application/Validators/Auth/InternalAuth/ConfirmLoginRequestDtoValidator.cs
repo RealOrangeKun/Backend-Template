@@ -7,7 +7,7 @@ public class ConfirmLoginRequestDtoValidator : AbstractValidator<ConfirmLoginReq
 {
     public ConfirmLoginRequestDtoValidator()
     {
-        RuleFor(x => x.Token)
+        RuleFor(x => x.Otp)
             .NotEmpty().WithMessage("Confirmation token is required.");
     }
 }
