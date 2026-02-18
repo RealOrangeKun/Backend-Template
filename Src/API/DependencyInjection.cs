@@ -4,6 +4,7 @@ using Application.Utils;
 using Asp.Versioning;
 using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.IdentityModel.Tokens;
@@ -27,6 +28,7 @@ public static class DependencyInjection
         services.AddRateLimiting();
         services.AddApiVersioningConfiguration();
         services.AddActionFilters();
+        services.ConfigureForwardedHeaders();
         if (isDevelopment)
         {
             services.AddSwaggerDocumentation();
@@ -56,7 +58,8 @@ public static class DependencyInjection
                 ValidateIssuerSigningKey = true,
                 ValidIssuer = jwtIssuer,
                 ValidAudience = jwtAudience,
-                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
+                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
+                ValidAlgorithms = [SecurityAlgorithms.HmacSha256] // Strictly enforce the algorithm
             };
         });
 
@@ -192,6 +195,21 @@ public static class DependencyInjection
             {
                 options.IncludeXmlComments(xmlPath);
             }
+        });
+
+        return services;
+    }
+
+    private static IServiceCollection ConfigureForwardedHeaders(this IServiceCollection services)
+    {
+        services.Configure<ForwardedHeadersOptions>(options =>
+        {
+            options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+            
+            // In a production environment, you should be more specific about known proxies.
+            // For this template, we clear them to allow the Nginx container to be recognized.
+            options.KnownNetworks.Clear();
+            options.KnownProxies.Clear();
         });
 
         return services;

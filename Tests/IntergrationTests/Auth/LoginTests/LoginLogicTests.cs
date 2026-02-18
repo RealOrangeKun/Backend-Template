@@ -11,7 +11,7 @@ namespace Tests.Auth;
 public class LoginLogicTests(CustomWebApplicationFactory factory) : BaseIntegrationTest(factory)
 {
     [Fact]
-    public async Task Login_WithNonExistentUser_Returns404NotFound()
+    public async Task Login_WithNonExistentUser_Returns401Unauthorized()
     {
         var request = new LoginRequestDto
         {
@@ -49,8 +49,8 @@ public class LoginLogicTests(CustomWebApplicationFactory factory) : BaseIntegrat
     [Fact]
     public async Task Login_WithExternalAuthUser_Returns401Unauthorized()
     {
-        // Arrange: Create a user with External AuthScheme (1)
-        var (_, _, username, _) = await AuthBackdoor.CreateVerifiedUserAsync("ExternalUser", "external@example.com", "TestPassword123", authScheme: 1);
+        // Arrange: Create a user with External auth (Google) - these users shouldn't use password login
+        var (userId, username, email) = await AuthBackdoor.CreateExternalAuthUserAsync("ExternalUser", "external@example.com");
 
         var loginRequest = new LoginRequestDto
         {

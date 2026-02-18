@@ -73,6 +73,8 @@ try
 
     app.UseSerilogRequestLogging();
 
+    app.UseForwardedHeaders();
+
     // testing purposes only
     app.UseCors("AllowAll");
 

@@ -14,21 +14,22 @@ public class ConfirmationTokenCacheService(IDistributedCache cache)
         return new Random().Next(100000, 999999).ToString();
     }
 
-    public async Task SetTokenAsync(string email, string token, CancellationToken cancellationToken)
+    public async Task SetTokenAsync(string token, Guid userId, CancellationToken cancellationToken)
     {
-        await _cache.SetStringAsync(email, token, new DistributedCacheEntryOptions
-        {
+        await _cache.SetStringAsync(token, userId.ToString(), new DistributedCacheEntryOptions
+        {            
             AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10)
         }, cancellationToken);
     }
 
-    public async Task<string?> GetTokenAsync(string email, CancellationToken cancellationToken)
+    public async Task<Guid> GetUserIdByTokenAsync(string token, CancellationToken cancellationToken)
     {
-        return await _cache.GetStringAsync(email, cancellationToken);
+        var tokenValue = await _cache.GetStringAsync(token, cancellationToken);
+        return tokenValue != null ? Guid.Parse(tokenValue) : Guid.Empty;
     }
 
-    public async Task DeleteTokenAsync(string email, CancellationToken cancellationToken)
+    public async Task DeleteTokenAsync(string token, CancellationToken cancellationToken)
     {
-        await _cache.RemoveAsync(email, cancellationToken);
+        await _cache.RemoveAsync(token, cancellationToken);
     }
 }

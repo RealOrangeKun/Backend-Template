@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Json;
 using Application.DTOs.Auth;
 using Application.Utils;
 using Tests.Common;
@@ -16,20 +17,15 @@ public class ResetPasswordSuccessTests(CustomWebApplicationFactory factory) : Ba
     public async Task ResetPassword_WithValidToken_Returns200Ok_AndUpdatesPassword()
     {
         // Arrange
-        var (_, oldPassword, username, email) = await AuthBackdoor.CreateVerifiedUserAsync("ResetUser", "reset@example.com", "OldPassword123");
+        var (userId, oldPassword, username, email) = await AuthBackdoor.CreateVerifiedUserAsync("ResetUser", "reset@example.com", "OldPassword123");
 
         // Generate token and store in Redis
         var token = "123456";
-        var cache = Factory.Services.GetRequiredService<IDistributedCache>();
-        await cache.SetStringAsync(email, token, new DistributedCacheEntryOptions
-        {
-            AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10)
-        });
+        await AuthBackdoor.SeedPasswordResetTokenAsync(Factory, userId, token);
 
         var newPassword = "NewPassword123";
         var request = new ResetPasswordRequestDto
         {
-            Email = email,
             Token = token,
             NewPassword = newPassword
         };
@@ -43,12 +39,22 @@ public class ResetPasswordSuccessTests(CustomWebApplicationFactory factory) : Ba
         Assert.True(content.Success);
 
         // Verify login with new password works
+        var deviceId = Guid.NewGuid();
+        await AuthBackdoor.SeedUserDeviceAsync(userId, deviceId);
+
         var loginRequest = new LoginRequestDto
         {
             UsernameOrEmail = email,
             Password = newPassword
         };
-        var (loginResponse, loginContent, _) = await LoginTestHelpers.PostLoginAsync<SuccessApiResponse<LoginResponseDto>>(Client, loginRequest);
+        
+        var requestMessage = new HttpRequestMessage(HttpMethod.Post, "/api/v1/internal-auth/login")
+        {
+            Content = JsonContent.Create(loginRequest)
+        };
+        requestMessage.Headers.Add("Cookie", $"deviceId={deviceId}");
+
+        var loginResponse = await Client.SendAsync(requestMessage);
         Assert.Equal(HttpStatusCode.OK, loginResponse.StatusCode);
     }
 }

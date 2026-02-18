@@ -77,16 +77,14 @@ public class RefreshTokenRequestValidationTests(CustomWebApplicationFactory fact
             UserId = userId
         };
 
-        // Pass invalid GUID in cookie - this will be parsed as Guid.Empty by the facade
-        // Since the user exists, the validation will check the refresh token
-        // Guid.Empty will trigger MissingRefreshToken error (400)
-        var (response, content, _, _) = await RefreshTokenTestHelpers.PostRefreshTokenAsync<FailApiResponse>(Client, request, "not-a-valid-guid");
+        // Pass invalid refresh token cookie - system will treat it as invalid token
+        var (response, content, _, _) = await RefreshTokenTestHelpers.PostRefreshTokenAsync<FailApiResponse>(Client, request, "not-a-valid-refresh-token");
 
-        // The user check passes (user exists), but Guid.Empty triggers MissingRefreshToken (400)
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        // Invalid refresh token returns 401 Unauthorized
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
         Assert.NotNull(content);
         Assert.False(content.Success);
-        Assert.Equal(400, content.StatusCode);
+        Assert.Equal(401, content.StatusCode);
         Assert.Contains("refresh token", content.Message.ToLower());
     }
 }

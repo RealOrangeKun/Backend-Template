@@ -30,4 +30,10 @@
     <ProjectReference Include="..\Src\API\MyBackendTemplate.API.csproj" />
     <ProjectReference Include="..\Src\Infrastructure\MyBackendTemplate.Infrastructure.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <None Update="xunit.runner.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
 </Project>

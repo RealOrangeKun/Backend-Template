@@ -16,7 +16,7 @@ public class LinkGoogleLogicTests(CustomWebApplicationFactory factory) : BaseInt
     public async Task LinkGoogle_WithNonGuestUser_ReturnsBadRequest()
     {
         // Arrange: Create a verified regular user (not guest)
-        var (userId, password, username, email) = await AuthBackdoor.CreateVerifiedUserAsync(authScheme: 0); // Internal auth
+        var (userId, password, username, email) = await AuthBackdoor.CreateVerifiedUserAsync();
         
         // Login to get access token
         var loginRequest = new LoginRequestDto { UsernameOrEmail = email, Password = password };
@@ -45,7 +45,7 @@ public class LinkGoogleLogicTests(CustomWebApplicationFactory factory) : BaseInt
     {
         // Arrange: Create a regular user with a specific email
         var existingEmail = "existing@example.com";
-        var (userId, password, username, email) = await AuthBackdoor.CreateVerifiedUserAsync(email: existingEmail, authScheme: 0);
+        var (userId, password, username, email) = await AuthBackdoor.CreateVerifiedUserAsync(email: existingEmail);
 
         // Create a guest user
         var (loginResponse, loginContent, _, _) = await GuestLoginTestHelpers.PostGuestLoginAsync<SuccessApiResponse<GuestLoginResponseDto>>(Client);
@@ -73,7 +73,7 @@ public class LinkGoogleLogicTests(CustomWebApplicationFactory factory) : BaseInt
     {
         // Arrange: Create an admin user
         var email = "admin@example.com";
-        var (adminUserId, password, username, _) = await AuthBackdoor.CreateVerifiedUserAsync(email: email, authScheme: 0);
+        var (adminUserId, password, username, _) = await AuthBackdoor.CreateVerifiedUserAsync(email: email);
         
         // Manually set user to admin role
         await SetUserRoleAsync(adminUserId, 1); // Admin role

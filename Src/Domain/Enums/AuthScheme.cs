@@ -1,7 +1,6 @@
-namespace Domain.Enums;
+namespace ENTER_NAMESPACE;
 
-public enum AuthScheme
+public class AuthScheme
 {
-    Internal,
-    External
+
 }

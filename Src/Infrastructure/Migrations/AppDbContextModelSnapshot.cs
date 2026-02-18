@@ -37,22 +37,20 @@ namespace MyBackendTemplate.Infrastructure.Migrations
                         .HasDefaultValue("")
                         .HasColumnName("address");
 
-                    b.Property<int>("AuthScheme")
-                        .HasColumnType("integer")
-                        .HasColumnName("auth_scheme");
-
                     b.Property<string>("Email")
-                        .IsRequired()
                         .HasMaxLength(150)
                         .HasColumnType("character varying(150)")
                         .HasColumnName("email");
+
+                    b.Property<string>("GoogleId")
+                        .HasColumnType("text")
+                        .HasColumnName("google_id");
 
                     b.Property<bool>("IsEmailVerified")
                         .HasColumnType("boolean")
                         .HasColumnName("is_email_verified");
 
                     b.Property<string>("PasswordHash")
-                        .IsRequired()
                         .HasMaxLength(60)
                         .HasColumnType("character varying(60)")
                         .HasColumnName("password_hash");
@@ -65,20 +63,11 @@ namespace MyBackendTemplate.Infrastructure.Migrations
                         .HasDefaultValue("")
                         .HasColumnName("phone_number");
 
-                    b.Property<Guid>("RefreshToken")
-                        .HasColumnType("uuid")
-                        .HasColumnName("refresh_token");
-
-                    b.Property<DateTime>("RefreshTokenExpiryTime")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("refresh_token_expiry_time");
-
                     b.Property<int>("Role")
                         .HasColumnType("integer")
                         .HasColumnName("role");
 
                     b.Property<string>("Username")
-                        .IsRequired()
                         .HasMaxLength(25)
                         .HasColumnType("character varying(25)")
                         .HasColumnName("username");
@@ -87,12 +76,83 @@ namespace MyBackendTemplate.Infrastructure.Migrations
                         .HasName("pk_users");
 
                     b.HasIndex("Email")
+                        .IsUnique()
                         .HasDatabaseName("ix_users_email");
 
+                    b.HasIndex("GoogleId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_users_google_id");
+
                     b.HasIndex("Username")
+                        .IsUnique()
                         .HasDatabaseName("ix_users_username");
 
                     b.ToTable("users", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Models.UserDevice.UserDevice", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.Property<Guid>("DeviceId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("device_id");
+
+                    b.HasKey("UserId", "DeviceId")
+                        .HasName("pk_user_devices");
+
+                    b.ToTable("user_devices", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Models.UserRefreshTokens.UserRefreshToken", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.Property<string>("RefreshTokenHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("refresh_token_hash");
+
+                    b.Property<bool>("IsUsed")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_used");
+
+                    b.Property<DateTime>("RefreshTokenExpiryTime")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("refresh_token_expiry_time");
+
+                    b.Property<DateTime?>("UsedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("used_at");
+
+                    b.HasKey("UserId", "RefreshTokenHash")
+                        .HasName("pk_user_refresh_tokens");
+
+                    b.ToTable("user_refresh_tokens", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Models.UserDevice.UserDevice", b =>
+                {
+                    b.HasOne("Domain.Models.User.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_user_devices_users_user_id");
+                });
+
+            modelBuilder.Entity("Domain.Models.UserRefreshTokens.UserRefreshToken", b =>
+                {
+                    b.HasOne("Domain.Models.User.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_user_refresh_tokens_users_user_id");
                 });
 #pragma warning restore 612, 618
         }

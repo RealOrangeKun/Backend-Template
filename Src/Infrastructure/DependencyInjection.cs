@@ -33,6 +33,8 @@ public static class DependencyInjection
     private static IServiceCollection AddRepositories(this IServiceCollection services)
     {
         services.AddScoped<IUserRepository, UserRepository>();
+        services.AddScoped<IUserDevicesRepository, UserDevicesRepository>();
+        services.AddScoped<IUserRefreshTokensRepository, UserRefreshTokensRepository>();
         return services;
     }
 }

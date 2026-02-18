@@ -8,7 +8,6 @@ public class GoogleAuthRequestDtoValidator : AbstractValidator<GoogleAuthRequest
     public GoogleAuthRequestDtoValidator()
     {
         RuleFor(x => x.IdToken)
-            .NotEmpty().WithMessage("IdToken is required.")
-            .WithMessage("Invalid IdToken format.");
+            .NotEmpty().WithMessage("IdToken is required.");
     }
 }

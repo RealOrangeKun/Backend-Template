@@ -80,23 +80,44 @@ public class InternalAuthController(IInternalAuthFacadeService authFacade) : Con
         return this.ToActionResult(result);
     }
 
-    /// <summary>
-    /// Login with email and password
-    /// </summary>
     [HttpPost("login")]
     [ProducesResponseType(typeof(SuccessApiResponse<LoginResponseDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(FailApiResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(FailApiResponse), StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType(typeof(FailApiResponse), StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> Login(
         [FromBody] LoginRequestDto loginRequest, 
         CancellationToken cancellationToken)
     {
-        var result = await _authFacade.LoginAsync(loginRequest, cancellationToken);
-        if (result.IsSuccess)
+        var ipAddressResult = this.GetClientIpAddress();
+        if (!ipAddressResult.IsSuccess)
+        {
+            return this.ToActionResult(Result<SuccessApiResponse<LoginResponseDto>>.Failure(ipAddressResult.Error));
+        }
+
+        var deviceIdResult = this.GetDeviceIdCookie();
+        var deviceId = deviceIdResult.IsSuccess ? deviceIdResult.Data : Guid.NewGuid();
+
+        var result = await _authFacade.LoginAsync(loginRequest, ipAddressResult.Data, deviceId, cancellationToken);
+        if (result.IsSuccess && result.Data.Data != null)
         {
             var refreshToken = result.Data.Data.RefreshToken;
             this.AddRefreshTokenCookie(refreshToken);
+            this.AddDeviceIdCookie(deviceId);
+        }
+        return this.ToActionResult(result);
+    }
+
+    [HttpPost("confirm-login")]
+    public async Task<IActionResult> ConfirmLogin(
+        [FromBody] ConfirmLoginRequestDto confirmLoginRequest, 
+        CancellationToken cancellationToken)
+    {
+        var result = await _authFacade.ConfirmLoginAsync(confirmLoginRequest, cancellationToken);
+        if (result.IsSuccess && result.Data.Data != null)
+        {
+            var refreshToken = result.Data.Data.RefreshToken;
+            this.AddRefreshTokenCookie(refreshToken);
+            this.AddDeviceIdCookie(result.Data.Data.DeviceId);
         }
         return this.ToActionResult(result);
     }
@@ -105,14 +126,21 @@ public class InternalAuthController(IInternalAuthFacadeService authFacade) : Con
     /// Confirm user email address
     /// </summary>
     [HttpPost("confirm-email")]
-    [ProducesResponseType(typeof(SuccessApiResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(SuccessApiResponse<ConfirmEmailResponseDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(FailApiResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(FailApiResponse), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> ConfirmEmail(
         [FromBody] ConfirmEmailRequestDto confirmEmailRequest,
         CancellationToken cancellationToken)
     {
-       var result = await _authFacade.ConfirmEmailAsync(confirmEmailRequest, cancellationToken);
+        var deviceIdResult = this.GetDeviceIdCookie();
+        var deviceId = deviceIdResult.IsSuccess ? deviceIdResult.Data : Guid.NewGuid();
+
+       var result = await _authFacade.ConfirmEmailAsync(confirmEmailRequest, deviceId, cancellationToken);
+       if (result.IsSuccess && result.Data.Data != null)
+       {
+           this.AddDeviceIdCookie(result.Data.Data.DeviceId);
+       }
        return this.ToActionResult(result);
     }
 
@@ -167,12 +195,12 @@ public class InternalAuthController(IInternalAuthFacadeService authFacade) : Con
     public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenRequestDto refreshTokenRequest, CancellationToken cancellationToken)
     {
         var refreshTokenResult = this.GetRefreshTokenCookie();
-        if (!refreshTokenResult.IsSuccess) // retrieving current refresh token cookie
+        if (!refreshTokenResult.IsSuccess)
         {            
             return this.ToActionResult(Result<SuccessApiResponse<RefreshTokenResponseDto>>.Failure(refreshTokenResult.Error));
         }
         var result = await _authFacade.RefreshTokenAsync(refreshTokenRequest, refreshTokenResult.Data, cancellationToken);
-        if (result.IsSuccess) // if refresh is successful, set the new refresh token cookie
+        if (result.IsSuccess)
         {
             var newRefreshToken = result.Data.Data.RefreshToken;
             this.AddRefreshTokenCookie(newRefreshToken);

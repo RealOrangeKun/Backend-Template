@@ -28,11 +28,9 @@ public class GuestLoginSuccessTests(CustomWebApplicationFactory factory) : BaseI
         Assert.NotNull(content.Data);
         Assert.NotEqual(Guid.Empty, content.Data.UserId);
         Assert.False(string.IsNullOrWhiteSpace(content.Data.AccessToken));
-        Assert.False(string.IsNullOrWhiteSpace(content.Data.RefreshToken));
         
-        // Verify refresh token cookie is set
+        // Verify refresh token cookie is set (RefreshToken is JsonIgnored in response)
         Assert.NotNull(refreshTokenCookie);
-        Assert.Equal(content.Data.RefreshToken, refreshTokenCookie);
     }
 
     [Fact]
@@ -126,7 +124,6 @@ public class GuestLoginSuccessTests(CustomWebApplicationFactory factory) : BaseI
         // Assert: Different user IDs are created
         Assert.NotEqual(content1!.Data.UserId, content2!.Data.UserId);
         Assert.NotEqual(content1.Data.AccessToken, content2.Data.AccessToken);
-        Assert.NotEqual(content1.Data.RefreshToken, content2.Data.RefreshToken);
     }
 
     /// <summary>

@@ -17,14 +17,12 @@ namespace Application.Services.Implementations;
 public class InternalAccountService(
         IUserRepository userRepository,
         IEmailService emailService,
-        IJwtTokenProvider tokenProvider,
         ILogger<InternalAccountService> logger,
         ConfirmationTokenCacheService tokenCacheService
     ) : IInternalAccountService
 {
     private readonly IUserRepository _userRepository = userRepository;
     private readonly IEmailService _emailService = emailService;
-    private readonly IJwtTokenProvider _tokenProvider = tokenProvider;
     private readonly ILogger<InternalAccountService> _logger = logger;
     private readonly ConfirmationTokenCacheService _tokenCacheService = tokenCacheService;
 
@@ -42,8 +40,10 @@ public class InternalAccountService(
         _logger.LogInformation("User created successfully with email: {Email}", user.Email);
 
         var confirmationToken = ConfirmationTokenCacheService.GenerateRandomToken();
-        await _tokenCacheService.SetTokenAsync(user.Email, confirmationToken, cancellationToken);
-        await _emailService.SendConfirmationEmailAsync(user.Email, confirmationToken, cancellationToken);
+        var storedToken = $"new_user:{confirmationToken}";
+        await _tokenCacheService.SetTokenAsync(storedToken, user.Id, cancellationToken);
+
+        await _emailService.SendConfirmationEmailAsync(user.Email!, confirmationToken, cancellationToken);
         _logger.LogInformation("Confirmation email sent successfully to {Email}", user.Email);
 
         return Result<SuccessApiResponse<RegisterResponseDto>>.Success(new SuccessApiResponse<RegisterResponseDto>
@@ -58,12 +58,13 @@ public class InternalAccountService(
     }
     private static User CreateUserForRegisteration(RegisterRequestDto registerRequest)
     {
-        // map using Mapster
-        var userCreationParams = registerRequest.Adapt<UserCreationParams>();
-        userCreationParams = userCreationParams with 
-        { 
+        var userCreationParams = new UserCreationParams
+        {
+            Email = registerRequest.Email,
+            Username = registerRequest.Username,
+            PhoneNumber = registerRequest.PhoneNumber,
             PasswordHash = HashPassword(registerRequest.Password),
-            AuthScheme = AuthScheme.Internal
+            Role = Roles.User
         };
         var user = new User(userCreationParams);
         return user;
@@ -74,12 +75,13 @@ public class InternalAccountService(
     }
     private async Task<Result<SuccessApiResponse<RegisterResponseDto>>> ValidateRegisterRequestAsync(User user, CancellationToken cancellationToken)
     {
-        if (await IsEmailInUseAsync(user.Email, cancellationToken))
+        // User email and username are guaranteed to be non-null for registration (validated in User constructor)
+        if (await IsEmailInUseAsync(user.Email!, cancellationToken))
         {
             _logger.LogWarning("Registration failed: Email {Email} already in use", user.Email);
             return Result<SuccessApiResponse<RegisterResponseDto>>.Failure(UserErrors.EmailAlreadyExists);
         }
-        if (await IsUsernameInUseAsync(user.Username, cancellationToken))
+        if (await IsUsernameInUseAsync(user.Username!, cancellationToken))
         {
             _logger.LogWarning("Registration failed: Username {Username} already in use", user.Username);
             return Result<SuccessApiResponse<RegisterResponseDto>>.Failure(UserErrors.UsernameAlreadyExists);
@@ -120,8 +122,10 @@ public class InternalAccountService(
         _logger.LogInformation("User promoted successfully with email: {Email}", user.Email);
 
         var confirmationToken = ConfirmationTokenCacheService.GenerateRandomToken();
-        await _tokenCacheService.SetTokenAsync(user.Email, confirmationToken, cancellationToken);
-        await _emailService.SendConfirmationEmailAsync(user.Email, confirmationToken, cancellationToken);
+        var storedToken = $"new_user:{confirmationToken}";
+        await _tokenCacheService.SetTokenAsync(storedToken, user.Id, cancellationToken);
+
+        await _emailService.SendConfirmationEmailAsync(user.Email!, confirmationToken, cancellationToken);
         _logger.LogInformation("Confirmation email sent successfully to {Email}", user.Email);
 
         return Result<SuccessApiResponse<RegisterResponseDto>>.Success(new SuccessApiResponse<RegisterResponseDto>
@@ -137,7 +141,7 @@ public class InternalAccountService(
     private async Task<Result<SuccessApiResponse<RegisterResponseDto>>> ValidateGuestPromoteRequestAsync(User user, CancellationToken cancellationToken)
     {
         var existingUser = await _userRepository.GetUserByIdAsync(user.Id, cancellationToken);
-        if (UserExists(existingUser) == false)
+        if (UserNotFound(existingUser))
         {
             _logger.LogWarning("Guest promotion failed: User with ID {UserId} not found", user.Id);
             return Result<SuccessApiResponse<RegisterResponseDto>>.Failure(UserErrors.UserNotFound);
@@ -155,13 +159,13 @@ public class InternalAccountService(
         }
         return Result<SuccessApiResponse<RegisterResponseDto>>.Success(default!);
     }
-    private bool UserExists(User? user)
+    private bool UserNotFound(User? user)
     {
         if (user == null)
         {
             _logger.LogWarning("User not found");
-            return false;
+            return true;
         }
-        return true;
+        return false;
     }
 }

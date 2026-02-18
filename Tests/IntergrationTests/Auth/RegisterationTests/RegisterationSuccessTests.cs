@@ -1,4 +1,6 @@
 using System.Net;
+using Microsoft.Extensions.Caching.Distributed;
+using Tests.MailHog;
 using Application.DTOs.Auth;
 using Application.Utils;
 using Tests.Common;
@@ -71,16 +73,31 @@ public class RegisterationSuccessTests(CustomWebApplicationFactory factory) : Ba
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
 
-        // Actual key in Redis will be prefixed with the InstanceName from Program.cs
-        // User requested that the key be the user email
-        var redisKey = $"MyBackendTemplate_{Email}";
-        var token = await Redis.GetValueAsync(redisKey);
-        var ttl = await Redis.GetTTLAsync(redisKey);
+        // Fetch the token from Mailhog
+        MailhogMessage? message = null;
+        for (int i = 0; i < 5; i++)
+        {
+            var messages = await Mailhog.GetAllMessagesAsync();
+            message = messages.Items.FirstOrDefault(m => m.To.Any(t => t.Email == Email));
+            if (message != null) break;
+            await Task.Delay(500);
+        }
+        
+        Assert.NotNull(message);
+        
+        var token = RegisterationTestHelpers.ExtractTokenFromBody(message.Content.Body);
+        Assert.False(string.IsNullOrEmpty(token), "Token should not be null or empty");
 
-        Assert.NotNull(token);
-        Assert.NotEmpty(token);
-        // Expiration should be around 15 minutes (900 seconds)
-        Assert.True(ttl > 0 && ttl <= 900, $"Expected TTL to be between 0 and 900 seconds, but was {ttl}");
+        // Use the native Cache (IDistributedCache) to verify the value
+        // It handles the "MyBackendTemplate_" prefix automatically
+        var storedUserId = await Cache.GetStringAsync($"new_user:{token}");
+        Assert.NotNull(storedUserId);
+        
+        // Use Redis provider only for TTL or low-level checks if needed, but with correct key
+        var redisKey = $"MyBackendTemplate_new_user:{token}";
+        var ttl = await Redis.GetTTLAsync(redisKey);
+        Assert.True(ttl > 0);
+        Assert.True(ttl <= 600); // 10 minutes
     }
 
     [Fact]

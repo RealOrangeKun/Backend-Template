@@ -16,18 +16,13 @@ public class ResetPasswordLogicTests(CustomWebApplicationFactory factory) : Base
     public async Task ResetPassword_WithInvalidToken_Returns400BadRequest()
     {
         // Arrange
-        var (_, _, _, email) = await AuthBackdoor.CreateVerifiedUserAsync("InvalidTokenReset", "invalidtoken@example.com", "TestPassword123");
+        var (userId, _, _, email) = await AuthBackdoor.CreateVerifiedUserAsync("InvalidTokenReset", "invalidtoken@example.com", "TestPassword123");
 
         // Set token in Redis
-        var cache = Factory.Services.GetRequiredService<IDistributedCache>();
-        await cache.SetStringAsync(email, "111111", new DistributedCacheEntryOptions
-        {
-            AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10)
-        });
+        await AuthBackdoor.SeedPasswordResetTokenAsync(Factory, userId, "111111");
 
         var request = new ResetPasswordRequestDto
         {
-            Email = email,
             Token = "wrong-token",
             NewPassword = "NewPassword123"
         };
@@ -42,12 +37,11 @@ public class ResetPasswordLogicTests(CustomWebApplicationFactory factory) : Base
     }
 
     [Fact]
-    public async Task ResetPassword_WithNonExistentUser_Returns404NotFound()
+    public async Task ResetPassword_WithNonExistentUser_Returns400BadRequest()
     {
         // Arrange
         var request = new ResetPasswordRequestDto
         {
-            Email = "nonexistent@example.com",
             Token = "123456",
             NewPassword = "NewPassword123"
         };
@@ -56,11 +50,11 @@ public class ResetPasswordLogicTests(CustomWebApplicationFactory factory) : Base
         var (response, content, _) = await ResetPasswordTestHelpers.PostResetPasswordAsync<FailApiResponse>(Client, request);
 
         // Assert
-        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
     [Fact]
-    public async Task ResetPassword_WithUnverifiedUser_Returns403Forbidden()
+    public async Task ResetPassword_WithUnverifiedUser_Returns400BadRequest()
     {
         // Arrange
         var email = "unverified-reset@example.com";
@@ -68,7 +62,6 @@ public class ResetPasswordLogicTests(CustomWebApplicationFactory factory) : Base
 
         var request = new ResetPasswordRequestDto
         {
-            Email = email,
             Token = "123456",
             NewPassword = "NewPassword123"
         };
@@ -77,6 +70,6 @@ public class ResetPasswordLogicTests(CustomWebApplicationFactory factory) : Base
         var (response, content, _) = await ResetPasswordTestHelpers.PostResetPasswordAsync<FailApiResponse>(Client, request);
 
         // Assert
-        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 }

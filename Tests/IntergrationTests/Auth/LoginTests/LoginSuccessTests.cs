@@ -52,5 +52,9 @@ public class LoginSuccessTests(CustomWebApplicationFactory factory) : BaseIntegr
         Assert.Equal("Login successful.", content.Message);
         Assert.NotEqual(Guid.Empty, content.Data.UserId);
         Assert.False(string.IsNullOrWhiteSpace(content.Data.AccessToken));
+        
+        // Assert deviceId cookie is set
+        var cookies = response.Headers.GetValues("Set-Cookie");
+        Assert.Contains(cookies, c => c.StartsWith("deviceId="));
     }
 }

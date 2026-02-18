@@ -3,6 +3,7 @@ using Application.DTOs.User;
 using Application.Services.Interfaces;
 using Application.Utils;
 using Domain.Shared;
+using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -18,14 +19,18 @@ public class InternalAuthFacadeService(
     private readonly IUserConfirmationService _userConfirmationService = userConfirmationService;
     private readonly IPasswordResetService _passwordResetService = passwordResetService;
     private readonly IInternalSessionService _internalIdentityService = internalIdentityService;
+    
     public Task<Result<SuccessApiResponse<RegisterResponseDto>>> RegisterAsync(RegisterRequestDto registerRequest, CancellationToken cancellationToken)
         => _internalAuthService.RegisterAsync(registerRequest, cancellationToken);
 
-    public Task<Result<SuccessApiResponse<LoginResponseDto>>> LoginAsync(LoginRequestDto loginRequest, CancellationToken cancellationToken)
-        => _internalIdentityService.LoginAsync(loginRequest, cancellationToken);
+    public Task<Result<SuccessApiResponse<LoginResponseDto>>> LoginAsync(LoginRequestDto loginRequest, IPAddress ipAddress, Guid deviceId, CancellationToken cancellationToken)
+        => _internalIdentityService.LoginAsync(loginRequest, ipAddress, deviceId, cancellationToken);
 
-    public Task<Result<SuccessApiResponse>> ConfirmEmailAsync(ConfirmEmailRequestDto confirmEmailRequest, CancellationToken cancellationToken)
-        => _userConfirmationService.ConfirmEmailAsync(confirmEmailRequest, cancellationToken);
+    public Task<Result<SuccessApiResponse<LoginResponseDto>>> ConfirmLoginAsync(ConfirmLoginRequestDto confirmLoginRequest, CancellationToken cancellationToken)
+        => _internalIdentityService.ConfirmLoginAsync(confirmLoginRequest, cancellationToken);
+
+    public Task<Result<SuccessApiResponse<ConfirmEmailResponseDto>>> ConfirmEmailAsync(ConfirmEmailRequestDto confirmEmailRequest, Guid deviceId, CancellationToken cancellationToken)
+        => _userConfirmationService.ConfirmEmailAsync(confirmEmailRequest, deviceId, cancellationToken);
 
     public Task<Result<SuccessApiResponse>> ResendConfirmationEmailAsync(ResendConfirmationEmailRequestDto resendConfirmationEmailRequest, CancellationToken cancellationToken)
         => _userConfirmationService.ResendConfirmationEmailAsync(resendConfirmationEmailRequest, cancellationToken);
@@ -37,7 +42,7 @@ public class InternalAuthFacadeService(
         => _passwordResetService.ResetPasswordAsync(resetPasswordRequest, cancellationToken);
 
     public Task<Result<SuccessApiResponse<RefreshTokenResponseDto>>> RefreshTokenAsync(RefreshTokenRequestDto refreshTokenRequest, string refreshTokenCookie, CancellationToken cancellationToken)
-        => _internalIdentityService.RefreshTokenAsync(refreshTokenRequest.UserId, Guid.TryParse(refreshTokenCookie, out var parsed) ? parsed : Guid.Empty, cancellationToken);
+        => _internalIdentityService.RefreshTokenAsync(refreshTokenRequest.UserId, refreshTokenCookie, cancellationToken);
     
     public Task<Result<SuccessApiResponse<RegisterResponseDto>>> GuestPromoteAsync(RegisterRequestDto registerRequest, Guid userId, CancellationToken cancellationToken)
         => _internalAuthService.GuestPromoteAsync(registerRequest, userId, cancellationToken);

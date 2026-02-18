@@ -23,7 +23,8 @@ public class GoogleLoginTests(CustomWebApplicationFactory factory) : BaseIntegra
         var payload = new GoogleJsonWebSignature.Payload
         {
             Email = "newuser@example.com",
-            Name = "New User"
+            Name = "New User",
+            Subject = "google_12345678901234567890" // Google ID (required for user creation)
         };
         mockValidator.Setup(v => v.ValidateAsync(It.IsAny<string>(), It.IsAny<GoogleJsonWebSignature.ValidationSettings>()))
             .ReturnsAsync(payload);
@@ -47,7 +48,6 @@ public class GoogleLoginTests(CustomWebApplicationFactory factory) : BaseIntegra
         Assert.True(content.Success);
         Assert.Equal("Google authentication successful.", content.Message);
         Assert.NotNull(content.Data.AccessToken);
-        Assert.NotNull(content.Data.RefreshToken);
         Assert.NotEqual(Guid.Empty, content.Data.UserId);
     }
 

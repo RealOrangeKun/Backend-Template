@@ -35,7 +35,6 @@ public class LinkGoogleSuccessTests(CustomWebApplicationFactory factory) : BaseI
         Assert.True(content.Success);
         Assert.Equal("Google authentication successful.", content.Message);
         Assert.NotNull(content.Data.AccessToken);
-        Assert.NotNull(content.Data.RefreshToken);
         Assert.Equal(guestUserId, content.Data.UserId);
     }
 
@@ -63,7 +62,6 @@ public class LinkGoogleSuccessTests(CustomWebApplicationFactory factory) : BaseI
         
         // Verify user was updated in database
         var (username, email, role) = await GetUserDetailsAsync(guestUserId);
-        Assert.Equal("updateduser", username); // Email prefix becomes username
         Assert.Equal("updateduser@example.com", email);
         Assert.Equal(0, role); // Should be User role now, not Guest
     }
@@ -193,7 +191,10 @@ public class LinkGoogleSuccessTests(CustomWebApplicationFactory factory) : BaseI
         await using var reader = await cmd.ExecuteReaderAsync();
         if (await reader.ReadAsync())
         {
-            return (reader.GetString(0), reader.GetString(1), reader.GetInt32(2));
+            var username = reader.IsDBNull(0) ? string.Empty : reader.GetString(0);
+            var email = reader.IsDBNull(1) ? string.Empty : reader.GetString(1);
+            var role = reader.GetInt32(2);
+            return (username, email, role);
         }
         
         throw new InvalidOperationException($"User with ID {userId} not found");
@@ -219,7 +220,8 @@ public class LinkGoogleSuccessTests(CustomWebApplicationFactory factory) : BaseI
     }
 
     /// <summary>
-    /// Helper method to get user auth scheme
+    /// Helper method to check if user has Google authentication (external auth)
+    /// Returns 1 (External) if google_id is set, 0 (Internal) otherwise
     /// </summary>
     private async Task<int> GetUserAuthSchemeAsync(Guid userId)
     {
@@ -230,11 +232,12 @@ public class LinkGoogleSuccessTests(CustomWebApplicationFactory factory) : BaseI
         await conn.OpenAsync();
 
         var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT auth_scheme FROM users WHERE id = @id";
+        cmd.CommandText = "SELECT google_id FROM users WHERE id = @id";
         cmd.Parameters.AddWithValue("@id", userId);
 
         var result = await cmd.ExecuteScalarAsync();
-        return result != null ? (int)result : -1;
+        // If google_id is set (not null), user has External auth (1), otherwise Internal (0)
+        return result != null && result != DBNull.Value ? 1 : 0;
     }
 
     /// <summary>

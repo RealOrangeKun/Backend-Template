@@ -21,6 +21,11 @@ public class UserRepository(AppDbContext dbContext) : IUserRepository
         return await _dbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Email == email, cancellationToken);
     }
 
+    public async Task<User?> GetUserByGoogleIdAsync(string googleId, CancellationToken cancellationToken)
+    {
+        return await _dbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.GoogleId == googleId, cancellationToken);
+    }
+
     public async Task<User?> GetUserByIdAsync(Guid userId, CancellationToken cancellationToken)
     {
         return await _dbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);
@@ -85,4 +90,6 @@ public class UserRepository(AppDbContext dbContext) : IUserRepository
                 cancellationToken);
         return rowsAffected > 0;
     }
+
+
 }

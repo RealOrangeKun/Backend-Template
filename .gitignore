@@ -431,3 +431,5 @@ FodyWeavers.xsd
 remember.txt
 todo.txt
 .vscode
+*.key
+*.crt

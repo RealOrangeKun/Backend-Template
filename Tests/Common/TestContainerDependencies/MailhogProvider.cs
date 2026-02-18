@@ -19,5 +19,10 @@ public class MailhogProvider
         return new MailhogClient($"http://localhost:{httpPort}");
     }
 
+    public async Task<MailhogMessagesResponse> GetAllMessagesAsync()
+    {
+        return await CreateClient().GetMessagesAsync();
+    }
+
     public int GetSmtpPort() => _container.GetMappedPublicPort(1025);
 }

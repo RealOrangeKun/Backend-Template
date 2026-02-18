@@ -10,25 +10,10 @@ namespace Tests.Auth;
 public class ConfirmEmailRequestValidationTests(CustomWebApplicationFactory factory) : BaseIntegrationTest(factory)
 {
     [Fact]
-    public async Task ConfirmEmail_WithMissingEmail_Returns400BadRequest()
-    {
-        var request = new ConfirmEmailRequestDto
-        {
-            Email = "",
-            Token = "SomeToken"
-        };
-
-        var (response, content, _) = await ConfirmEmailTestHelpers.PostConfirmEmailAsync<FailApiResponse>(Client, request);
-
-        AssertBadRequestWithFieldError(response, content, "email");
-    }
-
-    [Fact]
     public async Task ConfirmEmail_WithMissingToken_Returns400BadRequest()
     {
         var request = new ConfirmEmailRequestDto
         {
-            Email = "test@example.com",
             Token = ""
         };
 

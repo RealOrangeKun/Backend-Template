@@ -14,9 +14,14 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
         builder
             .HasKey(u => u.Id);
         builder
-            .HasIndex(u => u.Username);
+            .HasIndex(u => u.GoogleId)
+            .IsUnique();
         builder
-            .HasIndex(u => u.Email);
+            .HasIndex(u => u.Username)
+            .IsUnique();
+        builder
+            .HasIndex(u => u.Email)
+            .IsUnique();
         builder
             .Property(u => u.Username)
             .HasMaxLength(UserConstraints.UsernameMaxLength);

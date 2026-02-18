@@ -14,7 +14,6 @@ namespace Application.Services.Implementations;
 public class UserService(IUserRepository userRepo, IJwtTokenProvider tokenProvider, ILogger<UserService> logger) : IUserService
 {
     private readonly IUserRepository _userRepository = userRepo;
-    private readonly IJwtTokenProvider _tokenProvider = tokenProvider;
     private readonly ILogger<UserService> _logger = logger;
 
     public async Task<Result<SuccessApiResponse>> UpdateProfileAsync(Guid userId, UpdateUserRequestDto request, CancellationToken ct)

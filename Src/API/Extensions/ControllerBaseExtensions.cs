@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Domain.Shared;
 using Application.Utils;
 using System.Security.Claims;
+using System.Net;
 using Application.Constants.ApiErrors;
 
 namespace API.Extensions;
@@ -66,6 +67,37 @@ public static class ControllerBaseExtensions
         return Result<string>.Success(refreshToken);
     }
 
+    public static Result<Guid> GetDeviceIdCookie(this ControllerBase controller)
+    {
+        var deviceIdString = controller.Request.Cookies["deviceId"] ?? string.Empty;
+        if (string.IsNullOrEmpty(deviceIdString) || !Guid.TryParse(deviceIdString, out var deviceId))
+        {
+            return Result<Guid>.Failure(new Error(
+                "AUTH_004",
+                "Device ID cookie is missing or invalid.",
+                [],
+                string.Empty,
+                StatusCodes.Status400BadRequest
+            ));
+        }
+        return Result<Guid>.Success(deviceId);
+    }
+
+    public static void AddDeviceIdCookie(this ControllerBase controller, Guid deviceId)
+    {
+        controller.Response.Cookies.Append(
+            "deviceId",
+            deviceId.ToString(),
+            new CookieOptions
+            {
+                HttpOnly = true,   // Important: Prevent JS from stealing it
+                Secure = true,     // Only send over HTTPS
+                SameSite = SameSiteMode.Strict,
+                Expires = DateTimeOffset.UtcNow.AddYears(1)
+            }
+        );
+    }
+
     public static Result<Guid> GetAuthenticatedUserId(this ControllerBase controller)
     {
         var userIdClaim = controller.User.FindFirst(ClaimTypes.NameIdentifier) ?? controller.User.FindFirst("sub");
@@ -82,5 +114,21 @@ public static class ControllerBaseExtensions
         }
         
         return Result<Guid>.Success(userId);
+    }
+
+    public static Result<IPAddress> GetClientIpAddress(this ControllerBase controller)
+    {
+        var remoteIp = controller.HttpContext.Connection.RemoteIpAddress;
+        if (remoteIp is null)
+        {
+            return Result<IPAddress>.Failure(new Error(
+                "AUTH_003",
+                "Client IP address could not be determined.",
+                [],
+                string.Empty,
+                StatusCodes.Status400BadRequest
+            ));
+        }
+        return Result<IPAddress>.Success(remoteIp);
     }
 }

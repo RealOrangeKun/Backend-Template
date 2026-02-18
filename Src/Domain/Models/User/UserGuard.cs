@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using Domain.Constraints.User;
+using Domain.Exceptions;
 
 namespace Domain.Constraints.User;
 
@@ -8,7 +9,13 @@ public static class UserGuard
     public static void NotNullOrEmpty(string? value, string parameterName)
     {
         if (string.IsNullOrWhiteSpace(value))
-            throw new ArgumentException($"{parameterName} is required.", parameterName);
+            throw new DomainException($"{parameterName} cannot be null or empty.", parameterName);
+    }
+
+    public static void ValidateUserId(Guid userId)
+    {
+        if (userId == Guid.Empty)
+            throw new DomainException("User ID cannot be empty.", nameof(userId));
     }
 
     public static void ValidateUsername(string username)
@@ -16,7 +23,7 @@ public static class UserGuard
         NotNullOrEmpty(username, nameof(username));
         
         if (username.Length < UserConstraints.UsernameMinLength || username.Length > UserConstraints.UsernameMaxLength)
-            throw new ArgumentException(
+            throw new DomainException(
                 $"Username must be between {UserConstraints.UsernameMinLength} and {UserConstraints.UsernameMaxLength} characters.",
                 nameof(username));
     }
@@ -26,7 +33,7 @@ public static class UserGuard
         NotNullOrEmpty(passwordHash, nameof(passwordHash));
         
         if (passwordHash.Length != UserConstraints.PasswordHashLength)
-            throw new ArgumentException(
+            throw new DomainException(
                 $"Password hash must be exactly {UserConstraints.PasswordHashLength} characters.",
                 nameof(passwordHash));
     }
@@ -36,13 +43,13 @@ public static class UserGuard
         NotNullOrEmpty(email, nameof(email));
 
         if (email.Length > UserConstraints.EmailMaxLength)
-            throw new ArgumentException(
+            throw new DomainException(
                 $"Email cannot exceed {UserConstraints.EmailMaxLength} characters.",
                 nameof(email));
 
         var emailPattern = @"^[^@\s]+@[^@\s]+\.[^@\s]+$";
         if (!Regex.IsMatch(email, emailPattern))
-            throw new ArgumentException("Email must be a valid email address.", nameof(email));
+            throw new DomainException("Email must be a valid email address.", nameof(email));
     }
 
     public static void ValidatePhoneNumber(string? phoneNumber)
@@ -53,7 +60,7 @@ public static class UserGuard
         // E.164 international format
         var phonePattern = @"^\+?[1-9]\d{1,14}$";
         if (!Regex.IsMatch(phoneNumber, phonePattern))
-            throw new ArgumentException("Phone number must be a valid international phone number format.", nameof(phoneNumber));
+            throw new DomainException("Phone number must be a valid international phone number format.", nameof(phoneNumber));
     }
 
     public static void ValidateAddress(string? address)
@@ -62,9 +69,8 @@ public static class UserGuard
             return;
 
         if (address.Length < 5)
-            throw new ArgumentException("Address must be at least 5 characters long.", nameof(address));
-
+            throw new DomainException("Address must be at least 5 characters long.", nameof(address));
         if (address.Length > 200)
-            throw new ArgumentException("Address cannot exceed 200 characters.", nameof(address));
+            throw new DomainException("Address cannot exceed 200 characters.", nameof(address));
     }
 }

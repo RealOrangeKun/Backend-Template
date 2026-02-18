@@ -9,6 +9,9 @@ using Xunit;
 using Tests.Common.TestContainerDependencies;
 using Tests.MailHog;
 using Application.Services.Interfaces;
+using System.Net;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http.Features;
 
 namespace Tests.Common;
 
@@ -88,5 +91,33 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>, IAsyn
                 services.AddHostedService<OrchestratorHostedService>();
             }
         });
+
+        // Configure TestServer to inject fake RemoteIpAddress for all requests
+        builder.ConfigureTestServices(services =>
+        {
+            services.AddSingleton<IStartupFilter, FakeRemoteIpAddressStartupFilter>();
+        });
+    }
+
+    protected override void ConfigureClient(HttpClient client)
+    {
+        base.ConfigureClient(client);
+        // Add a header that the middleware will use to set the IP
+        client.DefaultRequestHeaders.Add("X-Test-Remote-IP", FakeRemoteIpAddressMiddleware.DefaultTestIpAddress);
+    }
+}
+
+/// <summary>
+/// Startup filter that injects the FakeRemoteIpAddressMiddleware at the very beginning of the pipeline
+/// </summary>
+public class FakeRemoteIpAddressStartupFilter : IStartupFilter
+{
+    public Action<IApplicationBuilder> Configure(Action<IApplicationBuilder> next)
+    {
+        return app =>
+        {
+            app.UseMiddleware<FakeRemoteIpAddressMiddleware>();
+            next(app);
+        };
     }
 }

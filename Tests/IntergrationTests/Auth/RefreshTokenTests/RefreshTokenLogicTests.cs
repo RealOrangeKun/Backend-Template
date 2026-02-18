@@ -33,8 +33,9 @@ public class RefreshTokenLogicTests(CustomWebApplicationFactory factory) : BaseI
     [Fact]
     public async Task RefreshToken_WithInvalidRefreshToken_Returns401Unauthorized()
     {
-        // Arrange: Create a verified user
+        // Arrange: Create a verified user with a refresh token
         var (userId, password, username, email) = await AuthBackdoor.CreateVerifiedUserAsync("RefreshLogicUser1", "refreshlogic1@example.com", "TestPassword123");
+        await AuthBackdoor.AddRefreshTokenAsync(userId); // Create a valid token in DB
 
         var request = new RefreshTokenRequestDto
         {
@@ -58,14 +59,11 @@ public class RefreshTokenLogicTests(CustomWebApplicationFactory factory) : BaseI
     [Fact]
     public async Task RefreshToken_WithExpiredRefreshToken_Returns401Unauthorized()
     {
-        // Arrange: Create a user and let some time pass, then set expiry to past
+        // Arrange: Create a user and add an expired refresh token
         var (userId, password, username, email) = await AuthBackdoor.CreateVerifiedUserAsync("RefreshLogicUser2", "refreshlogic2@example.com", "TestPassword123");
 
-        // Get the current refresh token first
-        var refreshToken = await GetUserRefreshTokenAsync(userId);
-        
-        // Then manually set the refresh token expiry to the past
-        await SetUserRefreshTokenExpiryAsync(userId, DateTime.UtcNow.AddDays(-1));
+        // Add a refresh token that's already expired
+        var expiredRefreshToken = await AuthBackdoor.AddRefreshTokenAsync(userId, expiryTime: DateTime.UtcNow.AddDays(-1));
 
         var request = new RefreshTokenRequestDto
         {
@@ -73,7 +71,7 @@ public class RefreshTokenLogicTests(CustomWebApplicationFactory factory) : BaseI
         };
 
         // Act
-        var (response, content, _, _) = await RefreshTokenTestHelpers.PostRefreshTokenAsync<FailApiResponse>(Client, request, refreshToken.ToString());
+        var (response, content, _, _) = await RefreshTokenTestHelpers.PostRefreshTokenAsync<FailApiResponse>(Client, request, expiredRefreshToken);
 
         // Assert
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
@@ -86,12 +84,13 @@ public class RefreshTokenLogicTests(CustomWebApplicationFactory factory) : BaseI
     [Fact]
     public async Task RefreshToken_WithMismatchedUserId_Returns401Unauthorized()
     {
-        // Arrange: Create two users
+        // Arrange: Create two users with refresh tokens
         var (userId1, _, _, _) = await AuthBackdoor.CreateVerifiedUserAsync("RefreshLogicUser3", "refreshlogic3@example.com", "TestPassword123");
         var (userId2, _, _, _) = await AuthBackdoor.CreateVerifiedUserAsync("RefreshLogicUser4", "refreshlogic4@example.com", "TestPassword123");
 
-        // Get the refresh token for user1
-        var user1RefreshToken = await GetUserRefreshTokenAsync(userId1);
+        // Add refresh token for user1
+        var user1RefreshToken = await AuthBackdoor.AddRefreshTokenAsync(userId1);
+        await AuthBackdoor.AddRefreshTokenAsync(userId2); // User2 also needs a token in DB
 
         // Try to use user1's refresh token with user2's ID
         var request = new RefreshTokenRequestDto
@@ -100,7 +99,7 @@ public class RefreshTokenLogicTests(CustomWebApplicationFactory factory) : BaseI
         };
 
         // Act
-        var (response, content, _, _) = await RefreshTokenTestHelpers.PostRefreshTokenAsync<FailApiResponse>(Client, request, user1RefreshToken.ToString());
+        var (response, content, _, _) = await RefreshTokenTestHelpers.PostRefreshTokenAsync<FailApiResponse>(Client, request, user1RefreshToken);
 
         // Assert: Should fail because the refresh token doesn't match userId2
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
@@ -112,10 +111,9 @@ public class RefreshTokenLogicTests(CustomWebApplicationFactory factory) : BaseI
     [Fact]
     public async Task RefreshToken_WithUnverifiedUser_StillSucceeds()
     {
-        // Arrange: Create an unverified user (email not confirmed)
+        // Arrange: Create an unverified user (email not confirmed) with a refresh token
         var (userId, password, username, email) = await AuthBackdoor.CreateUnverifiedUserAsync("RefreshLogicUser5", "refreshlogic5@example.com", "TestPassword123");
-        
-        var refreshToken = await GetUserRefreshTokenAsync(userId);
+        var refreshToken = await AuthBackdoor.AddRefreshTokenAsync(userId);
 
         var request = new RefreshTokenRequestDto
         {
@@ -123,7 +121,7 @@ public class RefreshTokenLogicTests(CustomWebApplicationFactory factory) : BaseI
         };
 
         // Act: Refresh token should still work even if email is not verified
-        var (response, content, _, _) = await RefreshTokenTestHelpers.PostRefreshTokenAsync<SuccessApiResponse<RefreshTokenResponseDto>>(Client, request, refreshToken.ToString());
+        var (response, content, _, _) = await RefreshTokenTestHelpers.PostRefreshTokenAsync<SuccessApiResponse<RefreshTokenResponseDto>>(Client, request, refreshToken);
 
         // Assert: Should succeed - refresh tokens work regardless of email verification status
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -134,10 +132,9 @@ public class RefreshTokenLogicTests(CustomWebApplicationFactory factory) : BaseI
     [Fact]
     public async Task RefreshToken_WithExternalAuthUser_StillSucceeds()
     {
-        // Arrange: Create a user with external auth scheme (e.g., Google)
-        var (userId, _, username, _) = await AuthBackdoor.CreateVerifiedUserAsync("RefreshLogicUser6", "refreshlogic6@example.com", "TestPassword123", authScheme: 1);
-        
-        var refreshToken = await GetUserRefreshTokenAsync(userId);
+        // Arrange: Create a user with external auth (e.g., Google) and add a refresh token
+        var (userId, username, email) = await AuthBackdoor.CreateExternalAuthUserAsync("RefreshLogicUser6", "refreshlogic6@example.com");
+        var refreshToken = await AuthBackdoor.AddRefreshTokenAsync(userId);
 
         var request = new RefreshTokenRequestDto
         {
@@ -145,49 +142,11 @@ public class RefreshTokenLogicTests(CustomWebApplicationFactory factory) : BaseI
         };
 
         // Act: Refresh token should work for external auth users too
-        var (response, content, _, _) = await RefreshTokenTestHelpers.PostRefreshTokenAsync<SuccessApiResponse<RefreshTokenResponseDto>>(Client, request, refreshToken.ToString());
+        var (response, content, _, _) = await RefreshTokenTestHelpers.PostRefreshTokenAsync<SuccessApiResponse<RefreshTokenResponseDto>>(Client, request, refreshToken);
 
-        // Assert: Should succeed - refresh tokens work for all auth schemes
+        // Assert: Should succeed - refresh tokens work for all auth types
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.NotNull(content);
         Assert.True(content.Success);
-    }
-
-    /// <summary>
-    /// Helper method to retrieve the current refresh token for a user from the database
-    /// </summary>
-    private async Task<Guid> GetUserRefreshTokenAsync(Guid userId)
-    {
-        var connStr = Environment.GetEnvironmentVariable("CONNECTION_STRING");
-        if (string.IsNullOrEmpty(connStr)) throw new InvalidOperationException("CONNECTION_STRING environment variable is not set.");
-
-        await using var conn = new Npgsql.NpgsqlConnection(connStr);
-        await conn.OpenAsync();
-
-        var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT refresh_token FROM users WHERE id = @id";
-        cmd.Parameters.AddWithValue("@id", userId);
-
-        var result = await cmd.ExecuteScalarAsync();
-        return result != null ? (Guid)result : Guid.Empty;
-    }
-
-    /// <summary>
-    /// Helper method to set the refresh token expiry time for a user in the database
-    /// </summary>
-    private async Task SetUserRefreshTokenExpiryAsync(Guid userId, DateTime expiryTime)
-    {
-        var connStr = Environment.GetEnvironmentVariable("CONNECTION_STRING");
-        if (string.IsNullOrEmpty(connStr)) throw new InvalidOperationException("CONNECTION_STRING environment variable is not set.");
-
-        await using var conn = new Npgsql.NpgsqlConnection(connStr);
-        await conn.OpenAsync();
-
-        var cmd = conn.CreateCommand();
-        cmd.CommandText = "UPDATE users SET refresh_token_expiry_time = @expiry WHERE id = @id";
-        cmd.Parameters.AddWithValue("@id", userId);
-        cmd.Parameters.AddWithValue("@expiry", expiryTime);
-
-        await cmd.ExecuteNonQueryAsync();
     }
 }

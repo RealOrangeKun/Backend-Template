@@ -15,7 +15,6 @@ public class ResetPasswordRequestValidationTests(CustomWebApplicationFactory fac
         // Arrange
         var request = new ResetPasswordRequestDto
         {
-            Email = "",
             Token = "",
             NewPassword = ""
         };
@@ -33,7 +32,6 @@ public class ResetPasswordRequestValidationTests(CustomWebApplicationFactory fac
         // Arrange
         var request = new ResetPasswordRequestDto
         {
-            Email = "test@example.com",
             Token = "123456",
             NewPassword = "short"
         };

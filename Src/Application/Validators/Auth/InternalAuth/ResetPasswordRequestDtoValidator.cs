@@ -7,10 +7,6 @@ public class ResetPasswordRequestDtoValidator : AbstractValidator<ResetPasswordR
 {
     public ResetPasswordRequestDtoValidator()
     {
-        RuleFor(x => x.Email)
-            .NotEmpty().WithMessage("Email is required.")
-            .EmailAddress().WithMessage("Invalid email format.");
-
         RuleFor(x => x.Token)
             .NotEmpty().WithMessage("Reset token is required.");
 
