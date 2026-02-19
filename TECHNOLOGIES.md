@@ -1,3 +1,38 @@
+### **OTP Strategy Pattern**
+All device confirmation, registration, and password reset flows use a pluggable OTP strategy pattern:
+
+```csharp
+public interface IOtpStrategy {
+    Task<string> GenerateOtpAsync(...);
+    Task<bool> ValidateOtpAsync(...);
+}
+```
+This allows for easy extension and testability of OTP flows.
+
+**Benefits:**
+- Unified OTP handling for all flows
+- Easy to add new OTP types (device, registration, password reset)
+- Testable and maintainable
+
+### **Thread-safe SMTP Email Sending**
+SMTP email sending uses a scoped SmtpClient per request, registered via DependencyInjection.cs:
+
+```csharp
+services.AddScoped<ISender>(sp => new SmtpSender(new SmtpClient(host) { EnableSsl = enableSsl, ... }));
+```
+This prevents thread-safety issues and process crashes under load.
+
+**Benefits:**
+- Safe concurrent email sending
+- No InvalidOperationException during stress tests
+**5. Device Idempotency:**
+Device confirmation checks for existing device before insert, preventing duplicate key errors.
+
+**6. OTP Security:**
+All OTP flows use secure random generation and validation, with expiry and attempt limits.
+
+**7. Thread-safe SMTP:**
+Scoped SmtpClient prevents concurrency issues and ensures reliable email delivery.
 # 🧪 Technical Manuscript
 
 This manuscript documents the alchemies and protocols used to build the **Architect's Forge**.

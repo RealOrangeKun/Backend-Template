@@ -2,7 +2,12 @@
 
 Welcome to the **Architect's Forge**, a high-performance, resilient backend template powered by .NET 9 and built with Clean Architecture. 
 
-This project is currently in its **Refactoring Phase**. Having successfully passed the first stage of TDD (Test-Driven Development) — where all integration tests pass with minimal viable code — the focus has shifted to code optimization, structuring, and enhancing system observability.
+This project is currently in its **Refactoring Phase**. All integration tests pass (100% success rate). Recent improvements include:
+* OTP Strategy Pattern for device, registration, and password reset flows
+* Thread-safe SMTP email sending (per-request SmtpClient)
+* Device idempotency and constraint handling
+* Multi-layered security: DoS protection, rate limiting, idempotency, JWT rotation
+* Documentation overhaul for new features and security
 
 ---
 
@@ -63,6 +68,7 @@ The Forge utilizes a sophisticated network of modern tools and frameworks:
     Open `MyBackendTemplate.sln` in VS Code or Visual Studio.
 3.  **Inspect the Chronicles:**
     Visit `http://localhost:8081` to view your realm's heartbeats in Seq.
+    Visit `http://localhost:15672` for RabbitMQ management (guest/guest).
 4.  **Enter the Admin Chambers:**
     Visit `http://localhost:15672` to manage the RabbitMQ Messenger Guild (guest/guest).
 
@@ -90,8 +96,11 @@ Infrastructure (Repositories, DbContext)
 - **Extension Methods:** Reusable controller logic (user ID extraction, cookie management)
 
 ### Code Quality & Security:
-- **60+ Integration Tests** with Testcontainers (100% pass rate)
-- **OAuth2 Testing Sandbox:** Local HTML testers in `test_oauth/` for validating social login and guest promotion flows.
+- **140 Integration Tests** with Testcontainers (100% pass rate)
+- **OTP Strategy Pattern:** Device, registration, and password reset flows use pluggable OTP strategies
+- **Thread-safe SMTP:** Scoped SmtpClient for concurrent email sending
+- **Device Idempotency:** Prevents duplicate device errors in login flows
+- **OAuth2 Testing Sandbox:** Local HTML testers in `test_oauth/` for validating social login and guest promotion flows
 - **Multi-layered DoS Protection:** Kestrel limits, rate limiting, request size constraints
 - **Structured Logging:** Serilog with Seq integration for observability
 - **Environment Variable Validation:** Fail-fast startup with consolidated error reporting
@@ -102,7 +111,7 @@ Infrastructure (Repositories, DbContext)
 ## 📜 Documentation
 
 ### Technical Deep Dives:
-- **[TECHNOLOGIES.md](./TECHNOLOGIES.md)** - Detailed technology explanations and usage patterns
+- **[TECHNOLOGIES.md](./TECHNOLOGIES.md)** - Detailed technology explanations, OTP, SMTP, security patterns
 - **[ADR-001](./docs/adr/001-backend-architecture-and-technology-stack.md)** - Comprehensive architectural decisions and rationale
 - **[DOCKER_SETUP.md](./DOCKER_SETUP.md)** - Container infrastructure setup guide
 

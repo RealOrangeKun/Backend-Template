@@ -1,3 +1,22 @@
+# OTP Strategy Pattern and Security Improvements (2026-02-19)
+
+## Context
+Recent refactoring introduced:
+- OTP Strategy Pattern for device, registration, and password reset flows
+- Thread-safe SMTP email sending (scoped SmtpClient per request)
+- Device idempotency and constraint handling
+- Multi-layered security: DoS protection, rate limiting, idempotency, JWT rotation
+- Documentation overhaul for new features and security
+
+## Decision
+Implement unified, extensible, and testable OTP handling for all critical flows. Use scoped SmtpClient for email sending. Add device idempotency checks before insert. Strengthen security with layered protections and JWT rotation.
+
+## Consequences
+- Unified OTP logic for all flows
+- No thread-safety issues in email sending under load
+- No duplicate device constraint errors
+- Stronger security posture and easier auditability
+- Documentation reflects new features and patterns
 # ADR-001: Backend Architecture and Technology Stack
 
 **Status:** Accepted  

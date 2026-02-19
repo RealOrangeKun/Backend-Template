@@ -1,3 +1,10 @@
+- `EMAIL_ENABLE_SSL`: Enable/disable SMTP SSL for Mailhog compatibility
+
+## Security & Email
+
+- **EMAIL_ENABLE_SSL**: Set to `false` for Mailhog/local testing, `true` for production SMTP
+- **Thread-safe SMTP**: Email sending uses a scoped SmtpClient per request for concurrency safety
+- **OTP Flows**: Device, registration, and password reset use secure OTP strategy pattern
 # Docker Setup Guide
 
 This project includes Docker support with PostgreSQL and ASP.NET Core API containers.
