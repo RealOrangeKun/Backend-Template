@@ -15,6 +15,7 @@ using Application.Services.Interfaces.Auth.InternalAuth;
 using Application.Services.Implementations.Auth.InternalAuth;
 using Application.DTOs.Auth.InternalAuth;
 using Application.Services.Implementations.Misc;
+using Hangfire;
 
 namespace Application.Services.Implementations;
 
@@ -22,13 +23,15 @@ public class InternalRegisterationService(
         IUserRepository userRepository,
         RegisterationConfirmationEmailSender registrationEmailSender,
         ILogger<InternalRegisterationService> logger,
-        IOtpService<RegistrationOtpPayload> _otpService
+        IOtpService<RegistrationOtpPayload> otpService,
+        IBackgroundJobClient backgroundJobClient
     ) : IInternalRegisterationService
 {
     private readonly IUserRepository _userRepository = userRepository;
     private readonly ILogger<InternalRegisterationService> _logger = logger;
     private readonly RegisterationConfirmationEmailSender _emailService = registrationEmailSender;
-    private readonly IOtpService<RegistrationOtpPayload> _otpService = _otpService;
+    private readonly IOtpService<RegistrationOtpPayload> _otpService = otpService;
+    private readonly IBackgroundJobClient _backgroundJobClient = backgroundJobClient;
 
     public async Task<Result<SuccessApiResponse<RegisterResponseDto>>> RegisterAsync(RegisterRequestDto registerRequest, CancellationToken cancellationToken)
     {
@@ -48,7 +51,7 @@ public class InternalRegisterationService(
         await _otpService.CacheAsync(new RegistrationOtpPayload(user.Id), otp, cancellationToken);
 
         _logger.LogInformation("Sending confirmation email to {Email}", registerRequest.Email);
-        await _emailService.SendAsync(user.Email!, otp, cancellationToken);
+        _backgroundJobClient.Enqueue<RegisterationConfirmationEmailSender>(x => x.SendAsync(user.Email!, otp, CancellationToken.None));
 
         return AuthSuccesses.RegistrationSuccessful(new RegisterResponseDto
         {
@@ -118,7 +121,7 @@ public class InternalRegisterationService(
         await _otpService.CacheAsync(new RegistrationOtpPayload(user.Id), otp, cancellationToken);
 
         _logger.LogInformation("Sending confirmation email for guest promotion to {Email}", registerRequest.Email);
-        await _emailService.SendAsync(user.Email!, otp, cancellationToken);
+        _backgroundJobClient.Enqueue<RegisterationConfirmationEmailSender>(x => x.SendAsync(user.Email!, otp, CancellationToken.None));
 
         return AuthSuccesses.RegistrationSuccessful(new RegisterResponseDto
         {

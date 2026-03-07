@@ -21,6 +21,7 @@ using Domain.Shared;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Logging;
+using Hangfire;
 
 namespace Application.Services.Implementations.Auth;
 
@@ -33,7 +34,8 @@ public class InternalSessionService(
     ILoginThrottlingService loginThrottlingService,
     IUserRefreshTokensRepository userRefreshTokensRepository,
     IOtpService<NewDeviceOtpPayload> otpService,
-    NewDeviceConfirmationEmailSender emailService
+    NewDeviceConfirmationEmailSender emailService,
+    IBackgroundJobClient backgroundJobClient
     ) : IInternalSessionService
 {
     private readonly IUserRepository _userRepository = userRepository;
@@ -45,6 +47,7 @@ public class InternalSessionService(
     private readonly IUserRefreshTokensRepository _userRefreshTokensRepository = userRefreshTokensRepository;
     private readonly IOtpService<NewDeviceOtpPayload> _otpService = otpService;
     private readonly NewDeviceConfirmationEmailSender _emailService = emailService;
+    private readonly IBackgroundJobClient _backgroundJobClient = backgroundJobClient;
 
     public async Task<Result<SuccessApiResponse<LoginResponseDto>>> LoginAsync(LoginRequestDto loginRequest, IPAddress ipAddress, Guid deviceId, CancellationToken cancellationToken)
     {
@@ -138,7 +141,7 @@ public class InternalSessionService(
     {
         var otp = OtpGenerator.GenerateOtp();
         await _otpService.CacheAsync(new NewDeviceOtpPayload(user.Id, deviceId), otp, cancellationToken);
-        await _emailService.SendAsync(user.Email!, otp, cancellationToken);
+        _backgroundJobClient.Enqueue<NewDeviceConfirmationEmailSender>(x => x.SendAsync(user.Email!, otp, CancellationToken.None));
 
         return AuthSuccesses.NewDeviceDetected();
     }

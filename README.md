@@ -1,130 +1,137 @@
-# 🛡️ The Architect's Forge: Backend Odyssey
+# MyBackendTemplate
 
-Welcome to the **Architect's Forge**, a high-performance, resilient backend template powered by .NET 9 and built with Clean Architecture. 
+Production-oriented .NET 9 backend template using Clean Architecture, with built-in authentication flows, Redis-backed idempotency, Hangfire background jobs, structured logging, and full integration testing with real infrastructure.
 
-This project is currently in its **Refactoring Phase**. All integration tests pass (100% success rate). Recent improvements include:
-* OTP Strategy Pattern for device, registration, and password reset flows
-* Thread-safe SMTP email sending (per-request SmtpClient)
-* Device idempotency and constraint handling
-* Multi-layered security: DoS protection, rate limiting, idempotency, JWT rotation
-* Documentation overhaul for new features and security
+## Features
 
----
+- Internal authentication with JWT access/refresh tokens
+- External authentication with Google OAuth
+- Email flows for registration, device confirmation, resend confirmation, and password reset
+- Background email dispatch with Hangfire + PostgreSQL storage
+- Redis-backed idempotency filter for sensitive operations
+- Guest session support and guest-to-user promotion
+- Rate limiting and request-size protections
+- Structured logging with Serilog and optional Seq
+- Integration tests using xUnit + Testcontainers + MailHog + Respawn
 
-## 🚀 Project Overview
+## Architecture
 
-The forge is designed to provide a robust starting point for modern web applications. It implements core features with a heavy emphasis on reliability and idempotency:
+The solution follows Clean Architecture with strict dependency flow:
 
-*   **🔐 Dual-Layer Authentication:** Integrated support for both internal (Email/Password) and external (Google OAuth2) authentication schemes.
-*   **🛡️ Strong Idempotency:** Custom action filters powered by Redis ensure that critical requests (like registration or updates) are resilient to network failures and accidental retries.
-*   **👤 User Management:** Full profile management systems including phone and address updates, email verification, and password recovery.
-*   **🤝 Guest Accommodation:** Support for anonymous guest sessions that can be seamlessly promoted to full accounts or linked to Google OAuth2.
-*   **👁️ Total Observability:** Detailed structured logging across all services and middlewares, integrated with Seq for real-time analysis.
-*   **🧪 Absolute Integration:** A suite of 60+ integration tests that spin up real infrastructure (Postgres, Redis, RabbitMQ) to guarantee system integrity.
-
----
-
-## ⚡ Power Grid (Technology Stack)
-
-The Forge utilizes a sophisticated network of modern tools and frameworks:
-
-### **Core Stack**
-*   **.NET 9 (C#):** The latest high-performance framework from Microsoft.
-*   **Entity Framework Core:** EF Core 9 with Npgsql for PostgreSQL interactions.
-*   **PostgreSQL:** The primary relational database for persistent storage.
-*   **Redis:** High-speed distributed cache for session management and idempotency locking.
-*   **RabbitMQ & MassTransit:** Enterprise-grade service bus for asynchronous event processing.
-
-### **Security & Identity**
-*   **JWT Bearer:** Standardized token-based authentication.
-*   **Google OAuth2:** External login integration.
-*   **BCrypt.Net:** Industrial-strength password hashing.
-*   **Asp.Versioning:** Semantic API versioning.
-
-### **Application Logic**
-*   **FluentValidation:** Expressive validation for incoming DTOs.
-*   **Mapster:** High-performance object mapping.
-*   **Serilog:** Structured logging with sinks for Console, File, and Seq.
-*   **FluentEmail:** Elegant email composition and delivery through SMTP.
-
-### **Testing & Quality**
-*   **xUnit:** Leading .NET testing framework.
-*   **Testcontainers:** Docker orchestration during test runs for real-world simulation.
-*   **Respawn:** Database cleanup between test scenarios.
-*   **MailHog:** Local SMTP testing server for email verification flows.
-
----
-
-## 🛠️ Leveling Up (Getting Started)
-
-1.  **Summon the Artifacts:**
-    ```bash
-    docker compose up -d
-    ```
-2.  **Ignite the Engine:**
-    ```bash
-    dotnet run --project Src/API
-    ```
-    Open `MyBackendTemplate.sln` in VS Code or Visual Studio.
-3.  **Inspect the Chronicles:**
-    Visit `http://localhost:8081` to view your realm's heartbeats in Seq.
-    Visit `http://localhost:15672` for RabbitMQ management (guest/guest).
-4.  **Enter the Admin Chambers:**
-    Visit `http://localhost:15672` to manage the RabbitMQ Messenger Guild (guest/guest).
-
----
-
-## 📐 Architecture & Design
-
-This project follows **Clean Architecture** principles with strict dependency flow inward toward the domain layer:
-
-```
-API (Controllers, Middleware) 
-  ↓ depends on
-Application (Services, DTOs, Validators) 
-  ↓ depends on
-Domain (Entities, Business Rules)
-  ↑ implemented by
-Infrastructure (Repositories, DbContext)
+```text
+API -> Application -> Domain
+         ^
+         |
+  Infrastructure (implements application interfaces)
 ```
 
-### Key Architectural Patterns:
-- **Result Pattern:** Explicit error handling without exceptions for expected failures
-- **Repository Pattern:** Data access abstraction with EF Core implementation
-- **Dependency Injection Facade:** Clean, organized service registration per layer
-- **Idempotency Filter:** Redis-backed request deduplication for critical operations
-- **Extension Methods:** Reusable controller logic (user ID extraction, cookie management)
+Projects:
 
-### Code Quality & Security:
-- **140 Integration Tests** with Testcontainers (100% pass rate)
-- **OTP Strategy Pattern:** Device, registration, and password reset flows use pluggable OTP strategies
-- **Thread-safe SMTP:** Scoped SmtpClient for concurrent email sending
-- **Device Idempotency:** Prevents duplicate device errors in login flows
-- **OAuth2 Testing Sandbox:** Local HTML testers in `test_oauth/` for validating social login and guest promotion flows
-- **Multi-layered DoS Protection:** Kestrel limits, rate limiting, request size constraints
-- **Structured Logging:** Serilog with Seq integration for observability
-- **Environment Variable Validation:** Fail-fast startup with consolidated error reporting
-- **JWT Authentication:** Stateless, horizontally scalable auth with refresh token rotation
+- `Src/API`: Controllers, middleware, filters, startup, HTTP contracts
+- `Src/Application`: Use cases, service interfaces/implementations, DTOs, validators
+- `Src/Domain`: Entities, enums, domain exceptions, core business rules
+- `Src/Infrastructure`: EF Core, repositories, persistence, external service adapters
+- `Tests`: Integration and stress testing infrastructure
 
----
+## Quick Start
 
-## 📜 Documentation
+### 1. Prerequisites
 
-### Technical Deep Dives:
-- **[TECHNOLOGIES.md](./TECHNOLOGIES.md)** - Detailed technology explanations, OTP, SMTP, security patterns
-- **[ADR-001](./docs/adr/001-backend-architecture-and-technology-stack.md)** - Comprehensive architectural decisions and rationale
-- **[DOCKER_SETUP.md](./DOCKER_SETUP.md)** - Container infrastructure setup guide
+- .NET SDK 9
+- Docker + Docker Compose
 
-### Quick Reference:
-- **[todo.txt](./todo.txt)** - Current work items and backlog
-- **[remember.txt](./remember.txt)** - Important implementation notes and gotchas
+### 2. Configure environment
 
----
+Copy the environment template:
 
-## 📜 Epic Chronicles
+```bash
+cp .env.example .env
+```
 
-To dive deeper into the ancient technology used in this forge, read the [**TECHNOLOGIES.md**](./TECHNOLOGIES.md) manuscript.
+The provided `.env.example` contains development defaults that work with `docker-compose.yml`.
 
-For architectural decisions and comprehensive design rationale, consult the [**Architecture Decision Records**](./docs/adr/).
+### 3. Start the stack
 
-*May your latencies be low and your uptimes eternal.*
+```bash
+docker compose up -d --build
+```
+
+### 4. Verify containers are healthy
+
+```bash
+docker compose ps
+```
+
+### 5. Useful local endpoints
+
+- API health: `http://localhost/health`
+- Swagger (Development): `http://localhost/api-docs`
+- Hangfire dashboard: `http://localhost/hangfire`
+- Seq UI: `http://localhost:5341`
+
+Note: In this setup, the API runs inside Docker and is fronted by Nginx on port 80/443.
+
+## Local API Run (Optional)
+
+By default, this repository is wired for Docker-first startup.
+
+If you want to run the API process directly on your host machine, expose Redis and RabbitMQ ports from compose first (or run those dependencies locally), then run the API from `Src/API` so `.env` is resolved correctly by `Env.Load("../../.env")`:
+
+```bash
+cd Src/API
+dotnet run
+```
+
+## Running Tests
+
+Run all tests:
+
+```bash
+dotnet test Tests/MyBackendTemplate.Tests.csproj
+```
+
+Run a specific test class or file via filter:
+
+```bash
+dotnet test Tests/MyBackendTemplate.Tests.csproj --filter "FullyQualifiedName~ForgetPasswordSuccessTests"
+```
+
+## Environment Variables
+
+See `.env.example` for the complete list. Key groups:
+
+- API/runtime: `ASPNETCORE_ENVIRONMENT`, `API_PORT`
+- PostgreSQL: `POSTGRES_*`, `CONNECTION_STRING`
+- Redis: `REDIS_CONNECTION_STRING`
+- RabbitMQ: `RABBITMQ_HOST`, `RABBITMQ_PORT`, `RABBITMQ_USERNAME`, `RABBITMQ_PASSWORD`
+- JWT: `JWT_KEY`, `JWT_ISSUER`, `JWT_AUDIENCE`, `JWT_DURATION_IN_MINUTES`
+- Email: `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_USERNAME`, `EMAIL_PASSWORD`, `EMAIL_FROM`, `EMAIL_ENABLE_SSL`
+- External auth: `Google_ClientId`, `Google_ClientSecret`
+
+## Repository Layout
+
+```text
+Src/
+  API/
+  Application/
+  Domain/
+  Infrastructure/
+Tests/
+docs/
+  adr/
+```
+
+## Documentation
+
+- `DOCKER_SETUP.md`: Docker and local infrastructure guide
+- `TECHNOLOGIES.md`: Technology and pattern reference
+- `docs/README.md`: Documentation index
+- `docs/adr/README.md`: ADR process and index
+- `docs/adr/001-backend-architecture-and-technology-stack.md`: Architecture decision record
+
+## Production Notes
+
+- Protect or disable `/hangfire` in production.
+- Replace permissive CORS policy used for local/testing scenarios.
+- Rotate and securely store all secrets; do not commit `.env`.
+- Review container hardening, TLS certs, and network exposure before deployment.

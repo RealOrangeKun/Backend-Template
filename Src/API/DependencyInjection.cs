@@ -15,6 +15,8 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
 using System.Threading.RateLimiting;
+using Hangfire;
+using Hangfire.PostgreSql;
 
 namespace API;
 
@@ -25,6 +27,7 @@ public static class DependencyInjection
         string jwtKey,
         string jwtIssuer,
         string jwtAudience,
+        string connectionString,
         bool isDevelopment = false)
     {
         services.AddAuthenticationAndAuthorization(jwtKey, jwtIssuer, jwtAudience);
@@ -33,6 +36,7 @@ public static class DependencyInjection
         services.AddApiVersioningConfiguration();
         services.AddActionFilters();
         services.ConfigureForwardedHeaders();
+        services.AddHangfireConfiguration(connectionString);
         if (isDevelopment)
         {
             services.AddSwaggerDocumentation();
@@ -222,6 +226,18 @@ public static class DependencyInjection
             options.KnownProxies.Clear();
         });
 
+        return services;
+    }
+
+    private static IServiceCollection AddHangfireConfiguration(this IServiceCollection services, string connectionString)
+    {
+        services.AddHangfire(configuration => configuration
+            .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
+            .UseSimpleAssemblyNameTypeSerializer()
+            .UseRecommendedSerializerSettings()
+            .UsePostgreSqlStorage(options => options.UseNpgsqlConnection(connectionString)));
+
+        services.AddHangfireServer();
         return services;
     }
 }

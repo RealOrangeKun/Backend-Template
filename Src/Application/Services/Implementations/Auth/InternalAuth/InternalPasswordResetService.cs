@@ -15,6 +15,7 @@ using Domain.Extensions;
 using Application.DTOs.Auth.InternalAuth;
 using Domain.Shared;
 using Application.Services.Interfaces;
+using Hangfire;
 
 namespace Application.Services.Implementations;
 
@@ -22,13 +23,15 @@ public class InternalPasswordResetService(
     IUserRepository userRepository,
     ILogger<InternalPasswordResetService> logger,
     PasswordResetEmailSender emailService,
-    IOtpService<PasswordResetOtpPayload> otpService
+    IOtpService<PasswordResetOtpPayload> otpService,
+    IBackgroundJobClient backgroundJobClient
 ) : IInternalPasswordResetService
 {
     private readonly IUserRepository _userRepository = userRepository;
     private readonly PasswordResetEmailSender _emailService = emailService;
     private readonly ILogger<InternalPasswordResetService> _logger = logger;
     private readonly IOtpService<PasswordResetOtpPayload> _otpService = otpService;
+    private readonly IBackgroundJobClient _backgroundJobClient = backgroundJobClient;
 
     public async Task<Result<SuccessApiResponse>> ForgetPasswordAsync(ForgetPasswordRequestDto forgetPasswordRequest, CancellationToken cancellationToken)
     {
@@ -46,7 +49,7 @@ public class InternalPasswordResetService(
         await _otpService.CacheAsync(new PasswordResetOtpPayload(user!.Id), otp, cancellationToken);
 
         _logger.LogInformation("Sending password reset email to {Email}", email);
-        await _emailService.SendAsync(email, otp, cancellationToken);
+        _backgroundJobClient.Enqueue<PasswordResetEmailSender>(x => x.SendAsync(email, otp, CancellationToken.None));
 
         return AuthSuccesses.PasswordResetEmailSent();
     }

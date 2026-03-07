@@ -29,12 +29,25 @@ public class ForgetPasswordSuccessTests(CustomWebApplicationFactory factory) : B
         Assert.NotNull(content);
         Assert.True(content.Success);
 
-        // Verify email was sent
+        // Verify email was sent (Hangfire dispatch is asynchronous, so poll briefly)
         var mailhogClient = Factory.MailhogClient!;
-        var messagesResponse = await mailhogClient.GetMessagesAsync();
-        Assert.Contains(messagesResponse.Items, m => 
-            m.To.Any(t => $"{t.Mailbox}@{t.Domain}" == email) && 
-            m.Content.Headers.TryGetValue("Subject", out var subject) && 
-            subject.Any(s => s.Contains("Reset Your Password")));
+        var sentEmail = default(Tests.MailHog.MailhogMessage);
+
+        for (var attempt = 0; attempt < 20; attempt++)
+        {
+            var messagesResponse = await mailhogClient.SearchMessagesByRecipientAsync(email);
+            sentEmail = messagesResponse.Items.FirstOrDefault(m =>
+                m.Content.Headers.TryGetValue("Subject", out var subject) &&
+                subject.Any(s => s.Contains("Reset Your Password", StringComparison.OrdinalIgnoreCase)));
+
+            if (sentEmail is not null)
+            {
+                break;
+            }
+
+            await Task.Delay(250);
+        }
+
+        Assert.NotNull(sentEmail);
     }
 }

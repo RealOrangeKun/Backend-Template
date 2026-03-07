@@ -8,13 +8,12 @@ public abstract class EmailSenderBase(IFluentEmail fluentEmail)
 {
     protected readonly IFluentEmail _fluentEmail = fluentEmail;
 
-    // The "Template Method" - defines the flow
+    // The "Template Method" - defines the flow.
     public async Task SendAsync(string recipient, string token, CancellationToken cancellationToken)
     {
         var subject = GetSubject();
         var body = GetBody(token);
 
-        // This is your common protected behavior
         await ExecuteSendAsync(recipient, subject, body, cancellationToken);
     }
 

@@ -12,6 +12,7 @@ using Domain.Models.UserDevice;
 using Domain.Shared;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
+using Hangfire;
 
 namespace Application.Services.Implementations;
 
@@ -20,7 +21,8 @@ public class InternalUserVerificationService(
     IOtpService<RegistrationOtpPayload> otpService,
     RegisterationConfirmationEmailSender emailService,
     ILogger<InternalUserVerificationService> logger,
-    IUserDevicesRepository userDeviceRepository
+    IUserDevicesRepository userDeviceRepository,
+    IBackgroundJobClient backgroundJobClient
 ) 
     : IInternalUserVerificationService
 {
@@ -29,6 +31,7 @@ public class InternalUserVerificationService(
     private readonly RegisterationConfirmationEmailSender _emailService = emailService;
     private readonly IUserDevicesRepository _userDeviceRepository = userDeviceRepository;
     private readonly ILogger<InternalUserVerificationService> _logger = logger;
+    private readonly IBackgroundJobClient _backgroundJobClient = backgroundJobClient;
 
     public async Task<Result<SuccessApiResponse<ConfirmEmailResponseDto>>> ConfirmEmailAsync(ConfirmEmailRequestDto confirmEmailRequest, Guid deviceId, CancellationToken cancellationToken)
     {
@@ -93,7 +96,7 @@ public class InternalUserVerificationService(
         await _otpService.CacheAsync(new RegistrationOtpPayload(user!.Id), otp, cancellationToken);
 
         _logger.LogInformation("Sending confirmation email for resend confirmation email to {Email}", email);
-        await _emailService.SendAsync(email, otp, cancellationToken);
+        _backgroundJobClient.Enqueue<RegisterationConfirmationEmailSender>(x => x.SendAsync(email, otp, CancellationToken.None));
 
         return AuthSuccesses.ConfirmationEmailResent();
     }

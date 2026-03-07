@@ -7,6 +7,7 @@ using Infrastructure;
 using Application;
 using API;
 using API.Utils;
+using Hangfire;
 
 Env.Load("../../.env");  // Load .env from root
 
@@ -56,7 +57,7 @@ try
     builder.Services.AddDomain();
     builder.Services.AddInfrastructure(connectionString);
     builder.Services.AddApplication(emailConfig, redisConnectionString, rabbitMqHost, rabbitMqPort, rabbitMqUsername, rabbitMqPassword);
-    builder.Services.AddApiLayer(jwtKey, jwtIssuer, jwtAudience, builder.Environment.IsDevelopment());
+    builder.Services.AddApiLayer(jwtKey, jwtIssuer, jwtAudience, connectionString, builder.Environment.IsDevelopment());
 
     // testing purposes only
     builder.Services.AddCors(options =>
@@ -98,6 +99,7 @@ try
     }
 
     app.UseMiddleware<GlobalExceptionHandlerMiddleware>();
+    app.UseHangfireDashboard("/hangfire");
 
     app.UseAuthentication();
     app.UseAuthorization();

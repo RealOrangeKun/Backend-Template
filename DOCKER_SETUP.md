@@ -1,108 +1,134 @@
-- `EMAIL_ENABLE_SSL`: Enable/disable SMTP SSL for Mailhog compatibility
-
-## Security & Email
-
-- **EMAIL_ENABLE_SSL**: Set to `false` for Mailhog/local testing, `true` for production SMTP
-- **Thread-safe SMTP**: Email sending uses a scoped SmtpClient per request for concurrency safety
-- **OTP Flows**: Device, registration, and password reset use secure OTP strategy pattern
 # Docker Setup Guide
 
-This project includes Docker support with PostgreSQL and ASP.NET Core API containers.
+This guide explains how to run the full local stack with Docker Compose.
+
+## Services
+
+`docker-compose.yml` provisions the following containers:
+
+- `postgres` (PostgreSQL 16)
+- `redis` (Redis 7)
+- `rabbitmq` (RabbitMQ)
+- `api` (.NET API image built from `Src/API/Dockerfile`)
+- `nginx` (reverse proxy and static hosting for OAuth test pages)
+- `seq` (log viewer)
 
 ## Quick Start
 
-1. **Ensure you're in the project root directory:**
-   ```bash
-   cd "./Backend Template"
-   ```
+1. Copy env template:
 
-2. **Start the containers:**
-   ```bash
-   docker-compose up -d
-   ```
+```bash
+cp .env.example .env
+```
 
-   This will:
-   - Build the .NET API Docker image
-   - Start a PostgreSQL 16 database container
-   - Start the ASP.NET Core API container
-   - All configured via the `.env` file
+2. Start the stack:
 
-3. **Verify services are running:**
-   ```bash
-   docker-compose ps
-   ```
+```bash
+docker compose up -d --build
+```
 
-4. **View logs:**
-   ```bash
-   docker-compose logs -f api      # API logs
-   docker-compose logs -f postgres # Database logs
-   ```
+3. Verify status:
 
-5. **Stop the containers:**
-   ```bash
-   docker-compose down
-   ```
+```bash
+docker compose ps
+```
 
-6. **Remove volumes (delete database):**
-   ```bash
-   docker-compose down -v
-   ```
+4. Check logs when needed:
 
-## Configuration
+```bash
+docker compose logs -f api
+docker compose logs -f postgres
+docker compose logs -f nginx
+```
 
-All environment variables are defined in the `.env` file at the project root:
+5. Confirm API is reachable:
 
-- `ASPNETCORE_ENVIRONMENT`: Set to `Development` or `Production`
-- `API_PORT`: API port mapping (default: 5000 → 8080 in container)
-- `DB_USER`: PostgreSQL username
-- `DB_PASSWORD`: PostgreSQL password
-- `DB_NAME`: Database name
-- `DB_PORT`: PostgreSQL port mapping (default: 5432)
-- `CONNECTION_STRING`: Full connection string for the API
+```bash
+curl -i http://localhost/health
+```
 
-## Files
+6. Stop services:
 
-- **`Dockerfile`**: Multi-stage build for the .NET API
-  - Build stage: Restores dependencies and compiles
-  - Publish stage: Publishes the application
-  - Runtime stage: Runs the application with ASP.NET Core runtime
+```bash
+docker compose down
+```
 
-- **`docker-compose.yml`**: Orchestrates API and PostgreSQL services
-  - Includes health checks
-  - Manages volume persistence
-  - Sets environment variables from `.env`
+7. Stop and remove volumes (destructive):
 
-- **`.env`**: Environment configuration file
-  - Edit this file to change database credentials, ports, etc.
-  - Not committed to git (added to `.gitignore`)
+```bash
+docker compose down -v
+```
 
-- **`.dockerignore`**: Excludes unnecessary files from Docker build context
+## Access Points
+
+- API via Nginx: `http://localhost`
+- Swagger (Development): `http://localhost/api-docs`
+- Hangfire dashboard: `http://localhost/hangfire`
+- Seq UI: `http://localhost:5341`
+
+## Environment Configuration
+
+All runtime values come from `.env`.
+
+Important keys:
+
+- `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `POSTGRES_PORT`
+- `CONNECTION_STRING`
+- `REDIS_CONNECTION_STRING`
+- `RABBITMQ_HOST`, `RABBITMQ_PORT`, `RABBITMQ_USERNAME`, `RABBITMQ_PASSWORD`
+- `JWT_KEY`, `JWT_ISSUER`, `JWT_AUDIENCE`, `JWT_DURATION_IN_MINUTES`
+- `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_USERNAME`, `EMAIL_PASSWORD`, `EMAIL_FROM`, `EMAIL_ENABLE_SSL`
+- `SEQ_URL`
+
+The repository ships with working development defaults in `.env.example`. For local startup, copy it as-is first, then adjust secrets/credentials if needed.
+
+Local MailHog usage:
+
+- Set `EMAIL_ENABLE_SSL=false` when SMTP target is MailHog.
+
+## Common Commands
+
+Rebuild API image:
+
+```bash
+docker compose up -d --build api
+```
+
+Open a shell inside API container:
+
+```bash
+docker compose exec api sh
+```
+
+Open psql inside Postgres container:
+
+```bash
+docker compose exec postgres psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"
+```
 
 ## Troubleshooting
 
-**Connection refused when API starts:**
-- PostgreSQL health check may still be running
-- Docker Compose waits for `postgres` service to be healthy before starting `api`
-- Check logs: `docker-compose logs postgres`
+API does not start:
 
-**Port already in use:**
-- Change port mappings in `.env`:
-  ```
-  API_PORT=5001     # Instead of 5000
-  DB_PORT=5433      # Instead of 5432
-  ```
+- Check env vars first (`CONNECTION_STRING`, JWT keys, Redis/RabbitMQ values).
+- Check container logs: `docker compose logs -f api`.
 
-**Rebuild the API image:**
-```bash
-docker-compose up --build
-```
+Port conflicts:
 
-**Access the database from terminal:**
-```bash
-docker exec -it mybackendtemplate-db psql -U postgres -d mybackendtemplate_db
-```
+- Change host-side ports in `.env` (for PostgreSQL) or `docker-compose.yml` (for exposed services).
 
-## Development vs Production
+Nginx returns 502:
 
-- Change `ASPNETCORE_ENVIRONMENT` in `.env` to `Production` for production builds
-- In Production, the API will skip OpenAPI/Swagger endpoints
+- API container may be unhealthy or restarting.
+- Confirm `api` container status and logs.
+
+SMTP errors in local environment:
+
+- Verify `EMAIL_HOST`, `EMAIL_PORT`, and `EMAIL_ENABLE_SSL=false` for MailHog.
+
+## Production Guidance
+
+- Do not expose internal service ports unless required.
+- Configure TLS certificates in `Nginx/ssl`.
+- Restrict access to `/hangfire` and `/api-docs`.
+- Store secrets in a secure secret manager instead of plain `.env` files.
