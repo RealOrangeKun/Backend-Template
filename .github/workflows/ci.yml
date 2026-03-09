@@ -1,22 +1,19 @@
-name: CI/CD Pipeline
+name: CI
 
 on:
   push:
-    branches: [ master, main, 'feature/*' ]
+    branches: [ master, main, "feature/*" ]
   pull_request:
     branches: [ master, main ]
 
 jobs:
-  build-and-test:
+  build:
+    name: Build and Test
     runs-on: ubuntu-latest
 
-    services:
-      # We don't necessarily need services here because Testcontainers 
-      # will spin them up inside the Docker daemon on the runner.
-      # However, the runner must have Docker installed (ubuntu-latest does).
-
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout code
+      uses: actions/checkout@v4
 
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
@@ -30,6 +27,4 @@ jobs:
       run: dotnet build --no-restore --configuration Release
 
     - name: Test
-      # Testcontainers requires access to the Docker daemon.
-      # On GitHub-hosted runners (ubuntu-latest), the user has permission.
       run: dotnet test --no-build --configuration Release --verbosity normal
