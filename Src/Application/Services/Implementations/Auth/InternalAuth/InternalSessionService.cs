@@ -179,6 +179,10 @@ public class InternalSessionService(
         _logger.LogInformation("generating access token for user ID {UserId} for new device confirmation", userId);
         var accessToken = _jwtTokenProvider.GenerateAccessToken(user!);
 
+        // Invalidate the OTP to prevent reuse
+        await _otpService.InvalidateAsync(confirmLoginRequest.Otp, cancellationToken);
+        _logger.LogInformation("Invalidated OTP for user ID {UserId} after successful device confirmation", userId);
+
         return AuthSuccesses.LoginConfirmed(new LoginResponseDto
         {
             UserId = user!.Id,
