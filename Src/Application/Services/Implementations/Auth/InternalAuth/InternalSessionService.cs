@@ -160,8 +160,16 @@ public class InternalSessionService(
             return Result<SuccessApiResponse<LoginResponseDto>>.Failure(UserErrors.UserNotFound);
         }
 
-        _logger.LogInformation("Adding new device to trusted devices for user ID {UserId}", userId);
-        await _userDeviceRepository.AddUserDeviceAsync(new UserDevice(userId, deviceId), cancellationToken);
+        var isDeviceAlreadyPresent = await _userDeviceRepository.IsDeviceIdPresentForUserId(deviceId, userId, cancellationToken);
+        if (!isDeviceAlreadyPresent)
+        {
+            _logger.LogInformation("Adding new device to trusted devices for user ID {UserId}", userId);
+            await _userDeviceRepository.AddUserDeviceAsync(new UserDevice(userId, deviceId), cancellationToken);
+        }
+        else
+        {
+            _logger.LogInformation("Device {DeviceId} already trusted for user ID {UserId}, skipping addition", deviceId, userId);
+        }
 
         _logger.LogInformation("generating refresh token for user ID {UserId} for new device confirmation", userId);
         var refreshToken = _refreshTokenProvider.GenerateNewRefreshToken();
